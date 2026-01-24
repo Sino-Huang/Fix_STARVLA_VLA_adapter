@@ -23,9 +23,8 @@ pip install -r requirements.txt --cache-dir "../../.cache/pip"
 pip install torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113
 pip install -e .
 
-pip install tyro matplotlib mediapy websockets msgpack
+pip install tyro matplotlib mediapy websockets msgpack rich debugpy
 pip install numpy==1.24.4
-pip install rich debugpy
 
 # get datasets (optional)
 # echo N | python benchmark_scripts/download_libero_datasets.py --use-huggingface 
