@@ -31,10 +31,10 @@ sleep 1
 tmux split-window -h -t "$pane_to_darpa"
 pane_instructions=$(tmux display-message -p '#{pane_id}')
 tmux select-pane -t "$pane_instructions" -T "instructions"
-tmux send-keys -t "$pane_instructions" "echo 'On Darpa Server, run: ssh -p 22549 sukai@localhost'" Enter
-echo "On Darpa Server, run: ssh -p 22549 sukai@localhost"
+tmux send-keys -t "$pane_instructions" "echo 'On Darpa Server, run: ssh -p 22549 sukaih@localhost'" Enter
+echo "On Darpa Server, run: ssh -p 22549 sukaih@localhost"
 # give instruction to use rsync to transfer files
-tmux send-keys -t "$pane_instructions" "echo 'To transfer files from Monash to Darpa, run: rsync -avz -e \"ssh -p 22549\" /path/to/local/ sukai@localhost:/path/to/remote/'" Enter
-echo "To transfer files from Monash to Darpa, run: rsync -avz -e \"ssh -p 22549\" /path/to/local/ sukai@localhost:/path/to/remote/"
-tmux send-keys -t "$pane_instructions" "echo 'To transfer files from Darpa to Monash, run: rsync -avz -e \"ssh -p 22549\" sukai@localhost:/path/to/remote/ /path/to/local/'" Enter
-echo "To transfer files from Darpa to Monash, run: rsync -avz -e \"ssh -p 22549\" sukai@localhost:/path/to/remote/ /path/to/local/"
+tmux send-keys -t "$pane_instructions" "echo 'To transfer files from Monash to Darpa, run: rsync -avz -e \"ssh -p 22549\" /path/to/local/ sukaih@localhost:/path/to/remote/'" Enter
+echo "To transfer files from Monash to Darpa, run: rsync -avz -e \"ssh -p 22549\" /path/to/local/ sukaih@localhost:/path/to/remote/"
+tmux send-keys -t "$pane_instructions" "echo 'To transfer files from Darpa to Monash, run: rsync -avz -e \"ssh -p 22549\" sukaih@localhost:/path/to/remote/ /path/to/local/'" Enter
+echo "To transfer files from Darpa to Monash, run: rsync -avz -e \"ssh -p 22549\" sukaih@localhost:/path/to/remote/ /path/to/local/"
