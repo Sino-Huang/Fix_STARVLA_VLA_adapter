@@ -1,10 +1,10 @@
 # tunnel between monash nlp and darpa server
 
-# check the device name contain fitcluster, otherwise exit
+# check the device name contain fitcluster or spartan 
 device_name=$(cat /etc/hostname | tr -d '\n')
-if [[ "$device_name" != *"fitcluster"* ]]; then
-    echo "This script is only for fitcluster device. Current device: $device_name"
-    exit 1
+if [[ "$device_name" != *"fitcluster"* && "$device_name" != *"spartan"* ]]; then
+    echo "This script is only for monash nlp cluster (fitcluster) to darpa server (darpa). Current device: ${device_name}"
+    exit 1  
 fi
 
 # start tmux session for ssh tunnel
