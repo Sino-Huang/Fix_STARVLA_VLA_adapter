@@ -18,6 +18,7 @@ import json
 import argparse
 from loguru import logger
 from tqdm import tqdm
+import gc
 
 class SimulationManager:
     """Manages simulation states and control mechanisms"""
@@ -123,6 +124,10 @@ class SimulationManager:
             x = torch.randn(effective_batch_size, input_size, device=device)
             y = torch.randint(0, output_size, (effective_batch_size,), device=device)
             
+            # check pickle file exist 
+            if not self.token_exists():
+                return True
+
             # Forward pass (automatically parallelized)
             outputs = model(x)
             loss = criterion(outputs, y)
@@ -153,13 +158,16 @@ class SimulationManager:
         self.state["iteration"] += 1
         return True
     
-    def idle_phase(self, base_sleep=10):
+    def mixing_phase(self, base_sleep=10):
         """
         Idle/sleep phase with progressive backoff
         Appears as model evaluation or data preprocessing
         """
         sleep_time = base_sleep * (1 + 0.1 * random.random())
         logger.info(f"[{datetime.now()}]")
+
+        # release GPU memory
+        
         
         # Calculate some CPU work during idle
         cycles = int(sleep_time * 1000000)
@@ -203,7 +211,10 @@ class SimulationManager:
                 else:
                     # Enter idle/sleep phase
                     self.state["mode"] = "idle"
-                    self.idle_phase()
+                    # remove vars 
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    self.mixing_phase()
                     self.save_state()
                     
             except KeyboardInterrupt:
