@@ -9,3 +9,7 @@ elif [[ "$device_name" != *"darpa"* ]]; then
     # we can do ssh -p 22549 sukaih@localhost to monash due to ssh tunnel
     # so copy local stuffs from darpa to monash 
     rsync -chavP -e "ssh -p 22549" /home/sukai/Project/STAR_VLA_FIX/Fix_STARVLA_VLA_adapter/playground sukaih@localhost:/data/ccu/sukaih/VLA_FIX_PROJECT/Fix_STARVLA_VLA_adapter/
+else
+    echo "This script is only for fitcluster or darpa device. Current device: ${device_name}"
+    exit 1
+fi
