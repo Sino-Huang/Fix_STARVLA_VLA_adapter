@@ -1,4 +1,16 @@
 #!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --ntasks=4
+#SBATCH --ntasks-per-node=4
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=50000
+#SBATCH --gres=gpu:2
+#SBATCH --time=6-00:00:00
+#SBATCH --qos=gpua100
+#SBATCH --partition=A100
+#SBATCH --exclude="node[13,16,19,20]"
+
 sessname="starvla_eval_libero_goal"
 tmux new-session -d -s "$sessname"
 if [[ $? -eq 1 ]]; then
@@ -8,6 +20,8 @@ if [[ $? -eq 1 ]]; then
     echo "Starting new tmux session: $sessname"
     tmux new-session -d -s "$sessname"
 fi
+
+source ~/cd_starvla
 
 your_ckpt=$PWD/playground/Pretrained_models/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt
 
@@ -45,3 +59,13 @@ echo "Libero eval started in pane: $pane_libero_env"
 
 # echo instructions to attach to the tmux session
 echo -e "To attach to the tmux session, run:\ntmux a -t $sessname"
+
+# if in slurm, need to maintain this script session, we check if we are in slurm by checking if SLURM_JOB_ID is set
+if [ -n "$SLURM_JOB_ID" ]; then
+    # also check if that tmux session there, if not, we can break 
+    while tmux has-session -t "$sessname" 2>/dev/null; do
+        python scripts/connect_utils/libero_env_alive_check.py
+    done
+fi
+    
+    
