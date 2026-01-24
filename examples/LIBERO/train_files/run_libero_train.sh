@@ -1,17 +1,28 @@
+device_name=$(cat /etc/hostname | tr -d '\n')
+# if fitcluster, then we are on monash nlp cluster
+if [[ "$device_name" == *"fitcluster"* ]] || [[ "$device_name" == *"spartan"* ]]; then
+    export NCCL_SOCKET_IFNAME=bond0
+    export NCCL_IB_HCA=mlx5_2,mlx5_3
 
+    # used for check save when communication
+    export NCCL_BLOCKING_WAIT=1
+    export NCCL_ASYNC_ERROR_HANDLING=1
+    export NCCL_TIMEOUT=10000  # timeout set to 1 hour (unit: seconds)
+    export NCCL_SOCKET_TIMEOUT_MS=360000
+elif [[ "$device_name" == *"darpa"* ]] || [[ "$device_name" == *"ansr-5090"* ]]; then
+    # 5090 * 4 single server with no infiniband
+    unset NCCL_IB_HCA
+    unset NCCL_SOCKET_IFNAME
+    export NCCL_IB_DISABLE=1
+else
+    echo "This script is only for fitcluster or darpa device. Current device: ${device_name}"
+    exit 1  
+fi
 
-export NCCL_SOCKET_IFNAME=bond0
-export NCCL_IB_HCA=mlx5_2,mlx5_3
-
-# used for check save when communication
-export NCCL_BLOCKING_WAIT=1
-export NCCL_ASYNC_ERROR_HANDLING=1
-export NCCL_TIMEOUT=10000  # timeout set to 1 hour (unit: seconds)
-export NCCL_SOCKET_TIMEOUT_MS=360000
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
 Framework_name=QwenOFT
-freeze_module_list=''
+freeze_module_list='qwen_vl_interface.model.model.language_model'
 base_vlm=playground/Pretrained_models/Qwen3-VL-4B-Instruct
 config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
 libero_data_root=playground/Datasets/LEROBOT_LIBERO_DATA
@@ -29,17 +40,36 @@ mkdir -p ${output_dir}
 # mv this script to the output dir
 cp $0 ${output_dir}/
 
+# check number of GPUs from CUDA_VISIBLE_DEVICES
+if [ -z "$CUDA_VISIBLE_DEVICES" ]; then
+    echo "CUDA_VISIBLE_DEVICES is not set. Using all available GPUs."
+    TOTAL_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
+else
+    IFS=',' read -r -a gpu_array <<< "$CUDA_VISIBLE_DEVICES"
+    TOTAL_GPUS=${#gpu_array[@]}
+fi
+echo "Total GPUs to be used for training: $TOTAL_GPUS"
+# set num_processes based on TOTAL_GPUS
+num_processes=$TOTAL_GPUS
+# if num_processes == 2, set per_device_batch_size to 16, if num_processes ==4, set per_device_batch_size to 8
+if [ "$num_processes" -eq 2 ]; then
+    per_device_batch_size=16
+elif [ "$num_processes" -eq 4 ]; then
+    per_device_batch_size=8
+else
+    per_device_batch_size=8
 
 accelerate launch \
   --config_file starVLA/config/deepseeds/deepspeed_zero2.yaml \
-  --num_processes 8 \
+  --num_processes ${num_processes} \
   starVLA/training/train_starvla.py \
   --config_yaml ${config_yaml} \
   --framework.name ${Framework_name} \
   --framework.qwenvl.base_vlm ${base_vlm} \
   --datasets.vla_data.data_root_dir ${libero_data_root}\
   --datasets.vla_data.data_mix ${data_mix} \
-  --datasets.vla_data.per_device_batch_size 16 \
+  --datasets.vla_data.per_device_batch_size ${per_device_batch_size} \
+  --trainer.gradient_accumulation_steps: 2 \
   --trainer.vla_data.video_backend torchvision_av \
   --trainer.freeze_modules ${freeze_module_list} \
   --trainer.max_train_steps 80000 \
@@ -48,8 +78,8 @@ accelerate launch \
   --trainer.eval_interval 100 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
-  --wandb_project starVLA_Libero \
-  --wandb_entity jinhuiye \
+  --wandb_project starvla_vanilla_libero \
+  --wandb_entity sukai-huang-monash-university \
   # --is_debug True
 
 

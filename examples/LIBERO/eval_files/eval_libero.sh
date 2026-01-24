@@ -4,6 +4,8 @@
 export LIBERO_HOME=$PWD/modules/LIBERO
 export LIBERO_CONFIG_PATH=${LIBERO_HOME}/libero
 export LIBERO_Python=${CONDA_PREFIX}/bin/python
+export PYOPENGL_PLATFORM=egl # for headless rendering
+export MUJOCO_GL=egl
 
 export PYTHONPATH=$PYTHONPATH:${LIBERO_HOME} # let eval_libero find the LIBERO tools
 

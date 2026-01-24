@@ -14,7 +14,7 @@ pip cache purge
 
 export CC=/usr/bin/gcc
 export CXX=/usr/bin/g++
-# conda install -c conda-forge cmake -y # you can do `module add git` in slurm system to get cmake
+conda install -c conda-forge cmake -y # you can do `module add git` in slurm system to get cmake
 
 cd modules/LIBERO
 pip install egl_probe --no-cache-dir
@@ -26,8 +26,8 @@ pip install -e .
 pip install tyro matplotlib mediapy websockets msgpack rich debugpy
 pip install numpy==1.24.4
 
-# get datasets (optional)
-# echo N | python benchmark_scripts/download_libero_datasets.py --use-huggingface 
+# get datasets 
+echo N | python benchmark_scripts/download_libero_datasets.py --use-huggingface 
 # it will be saved in modules/LIBERO/libero/datasets
 
 # download training dataset for fine-tuning

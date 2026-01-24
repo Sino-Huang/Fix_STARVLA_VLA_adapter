@@ -40,6 +40,10 @@ from starVLA.model.framework import build_framework
 from starVLA.training.trainer_utils.trainer_tools import TrainerUtils
 from starVLA.training.trainer_utils.trainer_tools import build_param_lr_groups
 from starVLA.training.trainer_utils.config_tracker import wrap_config, AccessTrackedConfig
+from starVLA.model.tools import print_freeze_status
+
+import warnings
+warnings.filterwarnings("ignore", module="torchvision.io._video_deprecation_warning")
 
 deepspeed_plugin = DeepSpeedPlugin()
 accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin)
@@ -166,6 +170,8 @@ class VLATrainer(TrainerUtils):
 
         #  print model trainable parameters:
         self.print_trainable_parameters(self.model)
+        
+        print_freeze_status(self.model)
 
         # initialize distributed training components
         self.model, self.optimizer, self.vla_train_dataloader = self.setup_distributed_training(
