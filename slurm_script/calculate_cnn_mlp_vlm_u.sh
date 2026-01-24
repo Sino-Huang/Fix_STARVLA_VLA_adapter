@@ -15,10 +15,10 @@
 CONDA_BASE="$HOME/miniconda3"
 source "$CONDA_BASE/etc/profile.d/conda.sh"
 
-source ~/cd_vla.sh
+cur_dir=$(pwd)
 
-# 
+source ~/cd_starvla
 
-cd ~
+echo "Python location is at $(which python)"
 
 python ${cur_dir}/slurm_script/cnn_mlp_vlm_switch_logic.py
