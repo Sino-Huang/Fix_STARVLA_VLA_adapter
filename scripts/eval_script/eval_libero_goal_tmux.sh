@@ -36,6 +36,10 @@ tmux send-keys -t "$pane_libero_env" "source ~/cd_libero ; cd .. ; cd .." Enter
 tmux send-keys -t "$pane_libero_env" "source env.sh" Enter
 # export your_ckpt
 tmux send-keys -t "$pane_libero_env" "export your_ckpt=$your_ckpt" Enter
+
+# remove previous process on port 10092
+tmux send-keys -t "$pane_libero_env" "kill $(lsof -t -i :10092)" Enter
+
 tmux send-keys -t "$pane_libero_env" "bash examples/LIBERO/eval_files/eval_libero.sh" Enter
 echo "Libero eval started in pane: $pane_libero_env"
 
