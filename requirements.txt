@@ -38,7 +38,7 @@ debugpy
 # conda install -c nvidia cuda-nvcc=12.4
 # nvcc for 5090
 # conda install -c nvidia cuda-nvcc=12.8
-# try to run this first 
+# try to run this first (5090 fits) (you need to go into the node with GPU to install this)
 # pip install flash-attn --no-cache-dir --no-build-isolation
 # for A100 GPU
 # pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl --no-deps

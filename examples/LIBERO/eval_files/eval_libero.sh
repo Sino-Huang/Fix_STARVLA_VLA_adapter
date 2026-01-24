@@ -1,22 +1,24 @@
 #!/bin/bash
 
-cd /mnt/petrelfs/yejinhui/Projects/starVLA
-conda activate starVLA
-
-###########################################################################################
 # === Please modify the following paths according to your environment ===
-export LIBERO_HOME=/mnt/petrelfs/share/yejinhui/Projects/LIBERO
+export LIBERO_HOME=$PWD/modules/LIBERO
 export LIBERO_CONFIG_PATH=${LIBERO_HOME}/libero
-export LIBERO_Python=/mnt/petrelfs/share/yejinhui/Envs/miniconda3/envs/lerobot/bin/python
+export LIBERO_Python=${CONDA_PREFIX}/bin/python
 
 export PYTHONPATH=$PYTHONPATH:${LIBERO_HOME} # let eval_libero find the LIBERO tools
-export PYTHONPATH=$(pwd):${PYTHONPATH} # let LIBERO find the websocket tools from main repo
-
 
 host="127.0.0.1"
 base_port=5694
 unnorm_key="franka"
-your_ckpt=./results/Checkpoints/1208_libero_all_QwenPI_qwen3/checkpoints/steps_50000_pytorch_model.pt
+
+# check if already set your_ckpt env variable, if not, set default value
+if [ -z "$your_ckpt" ]; then
+    your_ckpt=$PWD/playground/Pretrained_models/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt
+    echo "your_ckpt not set, using default: $your_ckpt"
+else
+    echo "using your_ckpt: $your_ckpt"
+fi
+
 export DEBUG=true
 
 folder_name=$(echo "$your_ckpt" | awk -F'/' '{print $(NF-2)"_"$(NF-1)"_"$NF}')
