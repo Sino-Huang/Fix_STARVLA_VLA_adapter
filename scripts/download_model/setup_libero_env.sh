@@ -7,6 +7,8 @@ git submodule update --init --recursive
 conda create -p $PWD/.venv/conda_env/LIBERO python=3.10 -y
 conda activate $PWD/.venv/conda_env/LIBERO
 
+# to conda remove env, do `conda env remove -p $PWD/.venv/conda_env/LIBERO`
+
 conda clean --all -y
 pip cache purge
 
