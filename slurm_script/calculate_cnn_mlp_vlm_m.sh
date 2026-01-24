@@ -9,12 +9,15 @@
 #SBATCH --time=6-00:00:00
 #SBATCH --qos=gpua100
 #SBATCH --partition=A100
+#SBATCH --exclude="node[13,16,19,20]"
 
+CONDA_BASE="$HOME/miniconda3"
+source "$CONDA_BASE/etc/profile.d/conda.sh"
 
 cur_dir=$(pwd)
 
-source ~/cd_ansr_behavior
+source ~/cd_starvla
 
-cd ~
+echo "Python location is at $(which python)"
 
-python ${cur_dir}/cnn_mlp_vlm_switch_logic.py
+python ${cur_dir}/slurm_script/cnn_mlp_vlm_switch_logic.py

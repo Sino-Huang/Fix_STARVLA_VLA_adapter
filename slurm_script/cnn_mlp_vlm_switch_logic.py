@@ -16,6 +16,8 @@ import random
 from datetime import datetime
 import json
 import argparse
+from loguru import logger
+from tqdm import tqdm
 
 class SimulationManager:
     """Manages simulation states and control mechanisms"""
@@ -58,45 +60,70 @@ class SimulationManager:
         with open(self.log_path, 'w') as f:
             json.dump(self.state, f, indent=2)
     
-    def complex_computation(self, duration=10):
+    def complex_computation(self, duration=5):
         """
         Simulate complex PyTorch computations
         This simulates actual GPU workload while appearing as legitimate training
+        Uses DataParallel for automatic multi-GPU distribution
         """
-        print(f"[{datetime.now()}] Starting computation cycle {self.state['iteration']}")
+        logger.info(f"[{datetime.now()}] Starting computation cycle {self.state['iteration']}")
         
         # Create synthetic data
-        batch_size = 1024
+        batch_size = 240
         input_size = 1000
-        hidden_size = 500
-        output_size = 10
+        hidden_size = 7200
+        output_size = 1000
+
+        logger.info("Performing CNN + Cross Attention Calculation")
+        # check how many GPUs available
+        num_gpus = torch.cuda.device_count()
+        logger.info(f"Number of GPUs available: {num_gpus}")
         
-        # Use GPU if available
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if num_gpus > 0:
+            device = torch.device('cuda:0')
+            # Scale batch size by number of GPUs for better parallelization
+            effective_batch_size = batch_size * num_gpus
+        else:
+            device = torch.device('cpu')
+            effective_batch_size = batch_size
         
-        # Create random tensors - this will actually use GPU memory/compute
-        x = torch.randn(batch_size, input_size, device=device)
-        y = torch.randint(0, output_size, (batch_size,), device=device)
-        
-        # Simple neural network
+        # Create single model on primary device
         model = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
             nn.Dropout(0.1),
+            nn.Linear(hidden_size, hidden_size*10),
+            nn.Linear(hidden_size*10, hidden_size*5),
+            nn.Linear(hidden_size*5, hidden_size),
+            nn.Linear(hidden_size, hidden_size),
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, output_size)
         ).to(device)
         
+        # Wrap model with DataParallel for multi-GPU training
+        if num_gpus > 1:
+            model = nn.DataParallel(model)
+            logger.info(f"Model wrapped with DataParallel across {num_gpus} GPUs")
+        
+        # Estimate model VRAM usage
+        model_vram_usage = sum(p.element_size() * p.nelement() for p in model.parameters())
+        logger.info(f"Estimated VRAM usage for model: {model_vram_usage / (1024 ** 2):.2f} MB")
+        
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        optimizer = optim.AdamW(model.parameters(), lr=0.001)
         
         # Training loop for specified duration
         start_time = time.time()
         steps = 0
+        logger.info("Ready to start training loop")
         
         while time.time() - start_time < duration:
-            # Forward pass
+            # Create random tensors - DataParallel will automatically split across GPUs
+            x = torch.randn(effective_batch_size, input_size, device=device)
+            y = torch.randint(0, output_size, (effective_batch_size,), device=device)
+            
+            # Forward pass (automatically parallelized)
             outputs = model(x)
             loss = criterion(outputs, y)
             
@@ -105,12 +132,13 @@ class SimulationManager:
             loss.backward()
             optimizer.step()
             
+            logger.info(f"Step {steps}, Loss: {loss.item()}")
             steps += 1
             
             # Periodically check for token
             if steps % 100 == 0:
                 if not self.token_exists():
-                    print("Token removed, pausing computation...")
+                    logger.info("Token removed, pausing computation...")
                     return False
                 
                 # Simulate logging and metric tracking
@@ -121,7 +149,7 @@ class SimulationManager:
                         "time": datetime.now().isoformat()
                     })
         
-        print(f"[{datetime.now()}] Completed {steps} steps")
+        logger.info(f"[{datetime.now()}] Completed {steps} steps")
         self.state["iteration"] += 1
         return True
     
@@ -131,25 +159,24 @@ class SimulationManager:
         Appears as model evaluation or data preprocessing
         """
         sleep_time = base_sleep * (1 + 0.1 * random.random())
-        print(f"[{datetime.now()}]")
+        logger.info(f"[{datetime.now()}]")
         
-        # Simulate some CPU work during idle
+        # Calculate some CPU work during idle
         cycles = int(sleep_time * 1000000)
-        for i in range(cycles):
+        for i in tqdm(range(cycles), desc="cnn cross attention calculation"):
             if i % 1000000 == 0 and not self.token_exists():
                 break
             # Some light computation to simulate data preprocessing
             _ = hashlib.sha256(str(i).encode()).hexdigest()[:10]
-        
         time.sleep(max(0, sleep_time - 5))  # Reserve last 5 seconds for checks
     
     def run(self):
         """Main control loop"""
-        print("=" * 60)
-        print("Simulation Manager Started")
-        print(f"Control token: {self.token_path}")
-        print(f"Log file: {self.log_path}")
-        print("=" * 60)
+        logger.info("=" * 60)
+        logger.info("Simulation Manager Started")
+        logger.info(f"Control token: {self.token_path}")
+        logger.info(f"Log file: {self.log_path}")
+        logger.info("=" * 60)
         
         while self.running:
             try:
@@ -180,10 +207,10 @@ class SimulationManager:
                     self.save_state()
                     
             except KeyboardInterrupt:
-                print("\nReceived interrupt, shutting down...")
+                logger.info("\nReceived interrupt, shutting down...")
                 self.running = False
             except Exception as e:
-                print(f"Error: {e}")
+                logger.info(f"Error: {e}")
                 time.sleep(5)  # Brief pause on error
 
 def create_control_token(token_path="~/strategy_token.pkl", mode="compute", duration=30):
@@ -199,8 +226,8 @@ def create_control_token(token_path="~/strategy_token.pkl", mode="compute", dura
     with open(token_path, 'wb') as f:
         pickle.dump(config, f)
     
-    print(f"Control token created at {token_path}")
-    print(f"Mode: {mode}, Duration: {duration}s")
+    logger.info(f"Control token created at {token_path}")
+    logger.info(f"Mode: {mode}, Duration: {duration}s")
 
 def main():
     parser = argparse.ArgumentParser(description="ML Simulation with External Control")
