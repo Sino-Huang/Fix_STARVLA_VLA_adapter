@@ -19,7 +19,6 @@ else
     echo "using your_ckpt: $your_ckpt"
 fi
 
-export DEBUG=true
 
 folder_name=$(echo "$your_ckpt" | awk -F'/' '{print $(NF-2)"_"$(NF-1)"_"$NF}')
 # === End of environment variable configuration ===

@@ -226,3 +226,4 @@ slurm*.out
 
 /.cache/hf/*
 /.cache/triton/*
+/.cache/pip/*
