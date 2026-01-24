@@ -1,19 +1,35 @@
 device_name=$(cat /etc/hostname | tr -d '\n')
 # if fitcluster, then we are on monash nlp cluster
-if [[ "$device_name" == *"fitcluster"* ]] || [[ "$device_name" == *"spartan"* ]]; then
-    export NCCL_SOCKET_IFNAME=bond0
-    export NCCL_IB_HCA=mlx5_2,mlx5_3
-
+if [[ "$device_name" == *"fitcluster"* ]] || [[ "$device_name" == *"node"* ]]; then
+    unset NCCL_IB_HCA
+    unset NCCL_SOCKET_IFNAME
     # used for check save when communication
     export NCCL_BLOCKING_WAIT=1
     export NCCL_ASYNC_ERROR_HANDLING=1
     export NCCL_TIMEOUT=10000  # timeout set to 1 hour (unit: seconds)
     export NCCL_SOCKET_TIMEOUT_MS=360000
+    export NCCL_SOCKET_IFNAME=ens193  # ! important for deepspeed multi node
+    export NCCL_IB_DISABLE=0
+    export TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX"
+    echo "Running on FitCluster, variable set"
+elif [[ "$device_name" == *"spartan"* ]] ; then 
+    export NCCL_SOCKET_IFNAME=bond0.3027  # ! important for deepspeed multi node
+    export TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX"
+    export CC=/usr/bin/gcc
+    export CXX=/usr/bin/g++
+    export NCCL_IB_DISABLE=0
+    export NCCL_BLOCKING_WAIT=1
+    export NCCL_ASYNC_ERROR_HANDLING=1
+    export NCCL_TIMEOUT=10000  # timeout set to 1 hour (unit: seconds)
+    export NCCL_SOCKET_TIMEOUT_MS=360000
+    echo "Running on Spartan Server, variable set"
 elif [[ "$device_name" == *"darpa"* ]] || [[ "$device_name" == *"ansr-5090"* ]]; then
     # 5090 * 4 single server with no infiniband
     unset NCCL_IB_HCA
     unset NCCL_SOCKET_IFNAME
     export NCCL_IB_DISABLE=1
+    echo "Running on Darpa Server, variable set"
+
 else
     echo "This script is only for fitcluster or darpa device. Current device: ${device_name}"
     exit 1  
@@ -58,6 +74,8 @@ elif [ "$num_processes" -eq 4 ]; then
     per_device_batch_size=8
 else
     per_device_batch_size=8
+
+fi
 
 accelerate launch \
   --config_file starVLA/config/deepseeds/deepspeed_zero2.yaml \
