@@ -23,7 +23,8 @@ fi
 
 source ~/cd_starvla
 
-your_ckpt=$PWD/playground/Pretrained_models/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt
+your_ckpt=$PWD/results/Checkpoints/1229_libero4in1_qwen3oft/checkpoints/steps_20000_pytorch_model.pt
+
 
 policy_gpu_id=0
 
