@@ -19,6 +19,9 @@ else
     eval_port=5694
 fi
 
+policy_gpu_id=0
+your_ckpt=$PWD/results/Checkpoints/1229_libero4in1_qwen3oft/checkpoints/steps_40000_pytorch_model.pt
+
 
 sessname="starvla_eval_libero_goal_%{eval_port}"
 tmux new-session -d -s "$sessname"
@@ -45,14 +48,7 @@ if [[ $? -eq 1 ]]; then
     fi
 fi
 
-
-
 source ~/cd_starvla
-
-your_ckpt=$PWD/results/Checkpoints/1229_libero4in1_qwen3oft/checkpoints/steps_20000_pytorch_model.pt
-
-
-policy_gpu_id=0
 
 # Pane 0:
 echo "Starting policy server in tmux session: $sessname"
