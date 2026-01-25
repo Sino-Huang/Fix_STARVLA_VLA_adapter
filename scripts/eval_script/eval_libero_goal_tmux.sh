@@ -34,7 +34,8 @@ fi
 
 source ~/cd_starvla
 
-your_ckpt=$PWD/playground/trained_model_checkpoint/trained_from_darpa/checkpoints/steps_20000_pytorch_model.pt
+your_ckpt=$PWD/results/Checkpoints/1229_libero4in1_qwen3oft/checkpoints/steps_20000_pytorch_model.pt
+
 
 policy_gpu_id=0
 
