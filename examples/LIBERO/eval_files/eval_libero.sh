@@ -13,6 +13,14 @@ host="127.0.0.1"
 base_port=5694
 unnorm_key="franka"
 
+if [ -z "$eval_port" ]; then
+    base_port=5694
+    echo "Base port not set, using default: 5694"
+else
+    base_port=$eval_port
+fi
+
+
 # check if already set your_ckpt env variable, if not, set default value
 if [ -z "$your_ckpt" ]; then
     your_ckpt=$PWD/playground/Pretrained_models/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt

@@ -12,25 +12,40 @@
 #SBATCH --exclude="node[13,16,19,20]"
 #SBATCH --nodelist=node[12]
 
-sessname="starvla_eval_libero_goal"
+# if $1 has input, then set the eval_port, otherwise, set eval_port default to 5694
+if [ -n "$1" ]; then
+    eval_port=$1
+else
+    eval_port=5694
+fi
+
+
+sessname="starvla_eval_libero_goal_%{eval_port}"
 tmux new-session -d -s "$sessname"
 if [[ $? -eq 1 ]]; then
     # meaning it already exists
     echo "Tmux session $sessname already exists."
+    # Check if panes are free (not running any processes)
+    if tmux list-panes -t "$sessname" -F "#{pane_pid}" | while read pid; do
+        [ -z "$(ps -p $pid -o comm=)" ] && continue || exit 1
+    done; then
+        tmux kill-session -t "$sessname"
+        echo "Killed existing tmux session: $sessname"
+        sleep 1
+        echo "Starting new tmux session: $sessname"
+        tmux new-session -d -s "$sessname"
+    else
+        echo "Panes are still running. Skipping session restart."
+    fi
     if [ -n "$SLURM_JOB_ID" ]; then
         # also check if that tmux session there, if not, we can break 
         while tmux has-session -t "$sessname" 2>/dev/null; do
             python scripts/connect_utils/libero_env_alive_check.py
         done
     fi
-        
-
-    # tmux kill-session -t "$sessname"
-    # echo "Killed existing tmux session: $sessname"
-    # sleep 3
-    # echo "Starting new tmux session: $sessname"
-    # tmux new-session -d -s "$sessname"
 fi
+
+
 
 source ~/cd_starvla
 
@@ -49,6 +64,8 @@ tmux send-keys -t "$pane_policy_server" "source env.sh" Enter
 tmux send-keys -t "$pane_policy_server" "export your_ckpt=$your_ckpt" Enter
 # export GPU id for policy server
 tmux send-keys -t "$pane_policy_server" "export gpu_id=$policy_gpu_id" Enter
+# export eval_port
+tmux send-keys -t "$pane_policy_server" "export eval_port=$eval_port" Enter
 
 tmux send-keys -t "$pane_policy_server" "bash examples/LIBERO/eval_files/run_policy_server.sh" Enter
 echo "Policy server started in pane: $pane_policy_server"
@@ -62,6 +79,8 @@ tmux send-keys -t "$pane_libero_env" "source ~/cd_libero ; cd .. ; cd .." Enter
 tmux send-keys -t "$pane_libero_env" "source env.sh" Enter
 # export your_ckpt
 tmux send-keys -t "$pane_libero_env" "export your_ckpt=$your_ckpt" Enter
+# export eval_port
+tmux send-keys -t "$pane_libero_env" "export eval_port=$eval_port" Enter
 
 # remove previous process on port 10092
 tmux send-keys -t "$pane_libero_env" "kill $(lsof -t -i :10092)" Enter

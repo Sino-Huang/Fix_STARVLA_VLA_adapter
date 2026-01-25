@@ -17,7 +17,14 @@ else
     echo "using gpu_id: $gpu_id"
 fi
 
-port=5694
+if [ -n "$eval_port" ]; then
+    port=$eval_port
+    echo "using eval_port: $port"
+else
+    port=5694
+    echo "eval_port not set, using default: $port"
+fi
+
 ################# star Policy Server ######################
 
 # export DEBUG=true
