@@ -10,20 +10,31 @@
 #SBATCH --qos=gpua100
 #SBATCH --partition=A100
 #SBATCH --exclude="node[13,16,19,20]"
+#SBATCH --nodelist=node[12]
 
 sessname="starvla_eval_libero_goal"
 tmux new-session -d -s "$sessname"
 if [[ $? -eq 1 ]]; then
-    tmux kill-session -t "$sessname"
-    echo "Killed existing tmux session: $sessname"
-    sleep 3
-    echo "Starting new tmux session: $sessname"
-    tmux new-session -d -s "$sessname"
+    # meaning it already exists
+    echo "Tmux session $sessname already exists."
+    if [ -n "$SLURM_JOB_ID" ]; then
+        # also check if that tmux session there, if not, we can break 
+        while tmux has-session -t "$sessname" 2>/dev/null; do
+            python scripts/connect_utils/libero_env_alive_check.py
+        done
+    fi
+        
+
+    # tmux kill-session -t "$sessname"
+    # echo "Killed existing tmux session: $sessname"
+    # sleep 3
+    # echo "Starting new tmux session: $sessname"
+    # tmux new-session -d -s "$sessname"
 fi
 
 source ~/cd_starvla
 
-your_ckpt=$PWD/playground/Pretrained_models/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt
+your_ckpt=$PWD/playground/trained_model_checkpoint/trained_from_darpa/checkpoints/steps_20000_pytorch_model.pt
 
 policy_gpu_id=0
 
