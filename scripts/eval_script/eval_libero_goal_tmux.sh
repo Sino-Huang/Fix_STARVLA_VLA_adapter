@@ -19,11 +19,13 @@ else
     eval_port=5694
 fi
 
+
+
 policy_gpu_id=0
-your_ckpt=$PWD/results/Checkpoints/1229_libero4in1_qwen3oft/checkpoints/steps_40000_pytorch_model.pt
+your_ckpt=$PWD/results/Checkpoints/trial_libero4in1_qwenadapter/checkpoints/steps_20000_pytorch_model.pt
 
 
-sessname="starvla_eval_libero_goal_%{eval_port}"
+sessname="starvla_eval_libero_goal_${eval_port}"
 tmux new-session -d -s "$sessname"
 if [[ $? -eq 1 ]]; then
     # meaning it already exists
@@ -49,6 +51,7 @@ if [[ $? -eq 1 ]]; then
 fi
 
 source ~/cd_starvla
+kill -9 $(lsof -t -i :$eval_port)  # kill previous process on that port if any
 
 # Pane 0:
 echo "Starting policy server in tmux session: $sessname"

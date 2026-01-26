@@ -37,14 +37,15 @@ fi
 
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
-Framework_name=QwenOFT
+Framework_name=QwenAdapter
 freeze_module_list='qwen_vl_interface.model.model.language_model'
-base_vlm=playground/Pretrained_models/Qwen3-VL-4B-Instruct
-config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
+# freeze_module_list='qwen_vl_interface.model.model.visual,qwen_vl_interface.model.model.language_model,dino_encoder'
+base_vlm=playground/Pretrained_models/Qwen3-VL-2B-Instruct
+config_yaml=./starVLA/config/training/starvla_train_adapter.yaml
 libero_data_root=playground/Datasets/LEROBOT_LIBERO_DATA
 data_mix=libero_all
 run_root_dir=./results/Checkpoints
-run_id=1229_libero4in1_qwen3oft
+run_id=trial_libero4in1_qwenadapter
 # === End of environment variable configuration ===
 ###########################################################################################
 
@@ -75,8 +76,9 @@ elif [ "$num_processes" -eq 4 ]; then
     per_device_batch_size=8
     gradient_accumulation_steps=2
 else
-    per_device_batch_size=8
-    gradient_accumulation_steps=2
+    per_device_batch_size=4
+    gradient_accumulation_steps=4
+
 fi
 
 accelerate launch \

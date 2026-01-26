@@ -93,7 +93,7 @@ class Qwen_GR00T(baseframework):
         actions = [example["action"] for example in examples]  # label [B， len, 7]
         
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
-        
+        # ! often state is None
 
         # Step 1: QWenVL input format
         qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
