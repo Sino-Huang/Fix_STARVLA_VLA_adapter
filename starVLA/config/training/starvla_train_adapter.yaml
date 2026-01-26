@@ -50,16 +50,16 @@ trainer:
   save_interval: 5000
   eval_interval: 100
   learning_rate:
-    base: 2.5e-05
-    qwen_vl_interface: 1.0e-05
+    base: 2.0e-05  # Changed from 2.5e-05 (VLA-Adapter uses 2e-5)
+    qwen_vl_interface: 2.0e-05  # Align with base lr (VLA-Adapter doesn't differentiate)
     action_model: 1.0e-04
-  lr_scheduler_type: cosine_with_min_lr
+  lr_scheduler_type: constant  # Changed from cosine_with_min_lr (VLA-Adapter uses "constant")
   scheduler_specific_kwargs:
     min_lr: 1.0e-06
   freeze_modules: ''
   loss_scale:
     vla: 1.0
-    vlm: 0.1
+    vlm: 1.0 # Increased from 0.1 to 1.0 for VLA-Adapter, for the action query learning
   max_grad_norm: 1.0
   warmup_ratio: 0.1
   weight_decay: 0.0

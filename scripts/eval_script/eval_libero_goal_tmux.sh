@@ -51,7 +51,7 @@ if [[ $? -eq 1 ]]; then
 fi
 
 source ~/cd_starvla
-kill -9 $(lsof -t -i :$eval_port)  # kill previous process on that port if any
+
 
 # Pane 0:
 echo "Starting policy server in tmux session: $sessname"
@@ -66,13 +66,23 @@ tmux send-keys -t "$pane_policy_server" "export gpu_id=$policy_gpu_id" Enter
 # export eval_port
 tmux send-keys -t "$pane_policy_server" "export eval_port=$eval_port" Enter
 
+# do kill -9 $(lsof -t -i :$eval_port)  # kill previous process on that port if any
+tmux send-keys -t "$pane_policy_server" "kill \$(lsof -t -i :$eval_port)" Enter
+
 tmux send-keys -t "$pane_policy_server" "bash examples/LIBERO/eval_files/run_policy_server.sh" Enter
 echo "Policy server started in pane: $pane_policy_server"
 sleep 3
 # Pane 1:
 echo "Starting libero eval in tmux session: $sessname"
-tmux split-window -v -t "$pane_policy_server"
-pane_libero_env=$(tmux display-message -p '#{pane_id}')
+# check if libero-env already exists
+if tmux list-panes -t "$sessname" | grep -q "libero-env"; then
+    echo "Pane libero-env already exists. Skipping creation."
+    pane_libero_env=$(tmux list-panes -t "$sessname" -F "#{pane_id} #{pane_title}" | grep "libero-env" | awk '{print $1}')
+else
+    tmux split-window -v -t "$pane_policy_server"
+    pane_libero_env=$(tmux display-message -p '#{pane_id}')
+fi
+
 tmux select-pane -t "$pane_libero_env" -T "libero-env"
 tmux send-keys -t "$pane_libero_env" "source ~/cd_libero ; cd .. ; cd .." Enter
 tmux send-keys -t "$pane_libero_env" "source env.sh" Enter
