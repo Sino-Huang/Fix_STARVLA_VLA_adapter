@@ -1789,6 +1789,7 @@ class LeRobotMixtureDataset(Dataset):
                 return dict(action=action, image=all_images, lang=language)
                 
             except Exception as e:
+                raise e
                 last_exception = e
                 if attempt < max_retries - 1:
                     # Log the error but continue trying
