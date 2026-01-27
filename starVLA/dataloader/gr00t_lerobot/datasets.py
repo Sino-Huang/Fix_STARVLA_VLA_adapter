@@ -1740,7 +1740,7 @@ class LeRobotMixtureDataset(Dataset):
                     # ! @Granularity --- Track image sizes ---
                     if self.enable_size_tracking:
     
-                        self.image_size_stats[target_resolution] += 1
+                        self.image_size_stats[(target_resolution, target_resolution)] += 1
                     
                     # Apply image cropping if enabled and the video key is base_view
                     # Note: crop_obs_camera functionality has been removed
@@ -1789,7 +1789,6 @@ class LeRobotMixtureDataset(Dataset):
                 return dict(action=action, image=all_images, lang=language)
                 
             except Exception as e:
-                raise e
                 last_exception = e
                 if attempt < max_retries - 1:
                     # Log the error but continue trying
