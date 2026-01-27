@@ -9,7 +9,7 @@ if [ -z "$node_name" ]; then
     echo "Please provide the node name as the first argument."
     exit 1
 fi
-
+node_number=$(echo "$node_name" | sed 's/node//')
 while true; do
     node_count=$(squeue | grep sukaih | grep -c "${node_name}")
     pd_count=$(squeue | grep sukaih | grep -c "PD")
@@ -19,6 +19,11 @@ while true; do
         sleep 5
     else
         echo "$(date): ${node_name} or PD not found, submitting job..."
+        # remove any line in the slurm_script/iterate_eval_libero_m.sh that contains #SBATCH --nodelist=node*
+        sed -i '/#SBATCH --nodelist=node\[/d' scripts/eval_script/eval_libero_goal_tmux.sh 
+        # add a line after the first line that contains #SBATCH --nodelist=node[${node_name}]
+        sed -i "1a #SBATCH --nodelist=node[${node_number}]" scripts/eval_script/eval_libero_goal_tmux.sh
+        # submit the job
         sbatch scripts/eval_script/eval_libero_goal_tmux.sh
         sleep 5
     fi
