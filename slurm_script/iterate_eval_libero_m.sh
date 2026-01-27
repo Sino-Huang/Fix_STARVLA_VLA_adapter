@@ -4,6 +4,12 @@ echo "Best run this in tmux"
 node_name=$1
 # run squeue | grep sukai and see if both node12 and PD (Resources) status exist
 
+# if node_name is empty, exit
+if [ -z "$node_name" ]; then
+    echo "Please provide the node name as the first argument."
+    exit 1
+fi
+
 while true; do
     node_count=$(squeue | grep sukaih | grep -c "${node_name}")
     pd_count=$(squeue | grep sukaih | grep -c "PD")
