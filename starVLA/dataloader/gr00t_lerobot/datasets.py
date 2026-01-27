@@ -781,9 +781,6 @@ class LeRobotSingleDataset(Dataset):
             epoch (int): The epoch to set.
         """
         self.epoch = epoch
-        # Print statistics at epoch transitions (only runs in main process)
-        if self.enable_size_tracking and epoch > 0:
-            self.print_image_size_statistics()
 
     def __len__(self) -> int:
         """Get the total number of data points in the dataset.
@@ -1669,6 +1666,9 @@ class LeRobotMixtureDataset(Dataset):
             epoch (int): The epoch to set.
         """
         self.epoch = epoch
+        # Print statistics at epoch transitions (only runs in main process)
+        if self.enable_size_tracking and epoch > 0:
+            self.print_image_size_statistics()
         # self.sampled_steps = self.sample_epoch()
 
     def sample_step(self, index: int) -> tuple[LeRobotSingleDataset, int, int]:
