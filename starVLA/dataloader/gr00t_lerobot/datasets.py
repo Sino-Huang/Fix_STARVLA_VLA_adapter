@@ -781,6 +781,9 @@ class LeRobotSingleDataset(Dataset):
             epoch (int): The epoch to set.
         """
         self.epoch = epoch
+        # Print statistics at epoch transitions (only runs in main process)
+        if self.enable_size_tracking and epoch > 0:
+        self.print_image_size_statistics()
 
     def __len__(self) -> int:
         """Get the total number of data points in the dataset.
@@ -1783,8 +1786,6 @@ class LeRobotMixtureDataset(Dataset):
                     state = np.concatenate(state, axis=1).astype(np.float16)
                     # prim_images
                     return dict(action=action, image=all_images, lang=language, state=state)
-
-                self.print_image_size_statistics()
 
                 return dict(action=action, image=all_images, lang=language)
                 
