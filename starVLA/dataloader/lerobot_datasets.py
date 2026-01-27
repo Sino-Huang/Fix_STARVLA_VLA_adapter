@@ -12,7 +12,7 @@ from starVLA.dataloader.gr00t_lerobot.datasets import LeRobotSingleDataset, LeRo
 from starVLA.dataloader.gr00t_lerobot.mixtures import DATASET_NAMED_MIXTURES
 from starVLA.dataloader.gr00t_lerobot.data_config import ROBOT_TYPE_CONFIG_MAP
 from starVLA.dataloader.gr00t_lerobot.embodiment_tags import ROBOT_TYPE_TO_EMBODIMENT_TAG, EmbodimentTag
-
+from loguru import logger
 def collate_fn(batch):
     return batch
 
@@ -45,6 +45,9 @@ def make_LeRobotSingleDataset(
     
     video_backend = data_cfg.get("video_backend", "decord") if data_cfg else "decord"
     
+
+    
+    
     return LeRobotSingleDataset(
         dataset_path=dataset_path,
         modality_configs=modality_config,
@@ -68,6 +71,7 @@ def get_vla_dataset(
     """
     data_root_dir = data_cfg.data_root_dir
     data_mix = data_cfg.data_mix
+    
     delete_pause_frame = data_cfg.get("delete_pause_frame", False)
     mixture_spec = DATASET_NAMED_MIXTURES[data_mix]
     included_datasets, filtered_mixture_spec = set(), []

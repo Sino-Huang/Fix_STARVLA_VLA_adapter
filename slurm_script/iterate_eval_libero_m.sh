@@ -13,5 +13,6 @@ while true; do
     else
         echo "$(date): node12 or PD not found, submitting job..."
         sbatch scripts/eval_script/eval_libero_goal_tmux.sh
+        sleep 5
     fi
 done

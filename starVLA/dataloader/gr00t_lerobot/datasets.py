@@ -24,6 +24,7 @@ In this file, we define 3 types of datasets:
 See `scripts/load_dataset.py` for examples on how to use these datasets.
 """
 import os
+import cv2
 import hashlib
 import json, torch
 from collections import defaultdict
@@ -37,6 +38,8 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 from PIL import Image
 import torch.distributed as dist
+from loguru import logger
+from time import time
 
 from starVLA.dataloader.gr00t_lerobot.video import get_all_frames, get_frames_by_timestamps
 
@@ -150,6 +153,10 @@ class LeRobotSingleDataset(Dataset):
         """
         # first check if the path directory exists
         self.data_cfg = data_cfg
+        
+
+        
+        
         if not Path(dataset_path).exists():
             raise FileNotFoundError(f"Dataset path {dataset_path} does not exist")
         # indict letobot version
@@ -781,7 +788,8 @@ class LeRobotSingleDataset(Dataset):
         Returns:
             int: the total number of data points in the dataset.
         """
-        return len(self.all_steps)
+        base_length = len(self.all_steps)
+        return base_length * 1
 
     def __str__(self) -> str:
         """Get the description of the dataset."""
@@ -1531,6 +1539,24 @@ class LeRobotMixtureDataset(Dataset):
         self.seed = seed
         self.mode = mode
         self.data_cfg = kwargs["data_cfg"] if "data_cfg" in kwargs else None
+        
+        # ! @Granularity Initialize size tracking
+        self.image_size_stats = defaultdict(int)  # Track {(width, height): count}
+        self.enable_size_tracking = self.data_cfg.get("track_image_sizes", False) if self.data_cfg else False
+        if self.enable_size_tracking:
+            logger.info("Image size tracking enabled")
+            
+        # ! @Granularity Add multi-resolution support
+        self.varying_image_resolution = self.data_cfg.get("varying_image_resolution", False) if self.data_cfg else False
+        if self.varying_image_resolution:
+            self.image_resolution_ranges = self.data_cfg.get('image_resolution_ranges', [224])
+            self.num_resolution_scales = len(self.image_resolution_ranges)
+            print(f"Multi-resolution training enabled: {self.image_resolution_ranges}")
+        else:
+            self.image_resolution_ranges = [224]  # Default single resolution
+            self.num_resolution_scales = 1
+            
+        self.stats_print_time = time()
 
         # Set properties for sampling
 
@@ -1663,9 +1689,16 @@ class LeRobotMixtureDataset(Dataset):
         # # Sample step
         # base_index = rng.choice(dataset.trajectory_lengths[trajectory_index])
         # return dataset, trajectory_id, base_index
-        single_step_index = rng.choice(len(dataset.all_steps))
-        trajectory_id, base_index = dataset.all_steps[single_step_index]
-        return dataset, trajectory_id, base_index
+        
+        # ! @Granularity expand steps by num_resolution_scales so each step is repeated per resolution
+        expanded_len = len(dataset.all_steps) * self.num_resolution_scales
+        flat_idx = rng.choice(expanded_len)
+
+        res_idx = flat_idx % self.num_resolution_scales
+        base_step_idx = flat_idx // self.num_resolution_scales
+        trajectory_id, base_index = dataset.all_steps[base_step_idx]
+
+        return dataset, trajectory_id, base_index, res_idx
 
     def __getitem__(self, index: int) -> dict:
         """Get the data for a single trajectory and start index.
@@ -1682,7 +1715,7 @@ class LeRobotMixtureDataset(Dataset):
         for attempt in range(max_retries):
             try:
                 while True: # @DUG
-                    dataset, trajectory_id, step = self.sample_step(index)
+                    dataset, trajectory_id, step, res_idx = self.sample_step(index)
                     key = dataset.modality_keys["video"][0].replace("video.", "")
                     video_path = dataset.get_video_path(trajectory_id, key)
                     if os.path.exists(video_path):
@@ -1692,15 +1725,36 @@ class LeRobotMixtureDataset(Dataset):
                 raw_data = dataset.get_step_data(trajectory_id, step)    
                 data = dataset.transforms(raw_data)
                 
+                # pick target resolution deterministically from res_idx
+                if self.varying_image_resolution:
+                    target_resolution = self.image_resolution_ranges[res_idx]
+                else:
+                    target_resolution = 224  # Default resolution
+                
                 # Process all video keys dynamically
                 prim_images = []
                 wrist_views = []
                 for video_key in dataset.modality_keys["video"]:
                     image = data[video_key][0]
                     
+                    # ! @Granularity --- Track image sizes ---
+                    if self.enable_size_tracking:
+    
+                        self.image_size_stats[target_resolution] += 1
+                    
                     # Apply image cropping if enabled and the video key is base_view
                     # Note: crop_obs_camera functionality has been removed
-                    image = Image.fromarray(image).resize((224, 224))
+                    
+                    # 1) Downsample
+                    image = cv2.resize(image, (target_resolution, target_resolution), 
+                                            interpolation=cv2.INTER_CUBIC)  # same as pil.resize default
+                    
+                    # 2) Upsample to 224x224 if target_resolution != 224
+                    if target_resolution != 224:
+                        image = cv2.resize(image, (224, 224), 
+                                            interpolation=cv2.INTER_LINEAR)  # Default, good balance
+                    image = Image.fromarray(image)
+                    
                     if "wrist" not in video_key:
                         prim_images.append(image)
                     else:
@@ -1729,6 +1783,8 @@ class LeRobotMixtureDataset(Dataset):
                     state = np.concatenate(state, axis=1).astype(np.float16)
                     # prim_images
                     return dict(action=action, image=all_images, lang=language, state=state)
+
+                self.print_image_size_statistics()
 
                 return dict(action=action, image=all_images, lang=language)
                 
@@ -1808,10 +1864,74 @@ class LeRobotMixtureDataset(Dataset):
         else:
             max_ratio = ratios.max()
         
-        result = int(max_ratio)
+        # ! @Granularity multiple of num_resolution_scales
+        result = int(max_ratio * self.num_resolution_scales)
+        
         if result == 0:
             print(f"Warning: Dataset mixture length is 0")
         return result
+    
+    
+    def get_image_size_statistics(self) -> dict:
+        """
+        Get statistics about encountered image sizes.
+        
+        Returns:
+            dict: Dictionary with size statistics
+        """
+        if not self.enable_size_tracking:
+            return {"error": "Size tracking not enabled. Set track_image_sizes=True in config."}
+        
+        total_images = sum(self.image_size_stats.values())
+        sorted_sizes = sorted(self.image_size_stats.items(), key=lambda x: x[1], reverse=True)
+        
+        stats = {
+            "total_images_processed": total_images,
+            "unique_sizes": len(self.image_size_stats),
+            "size_distribution": {
+                f"{w}x{h}": {
+                    "count": count,
+                    "percentage": f"{100 * count / total_images:.2f}%"
+                }
+                for (w, h), count in sorted_sizes
+            },
+            "most_common_size": f"{sorted_sizes[0][0][0]}x{sorted_sizes[0][0][1]}" if sorted_sizes else None,
+        }
+        
+        return stats
+    
+    def print_image_size_statistics(self):
+        """Print image size statistics in a readable format."""
+        if self.enable_size_tracking is False:
+            return
+        
+        cur_time = time()
+        time_diff = cur_time - self.stats_print_time
+        # print every 30 seconds
+        if time_diff < 30:
+            return
+        else:
+            self.stats_print_time = cur_time
+        
+        stats = self.get_image_size_statistics()
+        
+        if "error" in stats:
+            print(stats["error"])
+            return
+        
+        print("\n" + "="*60)
+        print("IMAGE SIZE STATISTICS")
+        print("="*60)
+        print(f"Total images processed: {stats['total_images_processed']}")
+        print(f"Unique sizes found: {stats['unique_sizes']}")
+        print(f"Most common size: {stats['most_common_size']}")
+        print("\nSize Distribution:")
+        print("-"*60)
+        
+        for size_str, info in stats['size_distribution'].items():
+            print(f"  {size_str:15s}: {info['count']:6d} images ({info['percentage']})")
+        
+        print("="*60 + "\n")
 
     @staticmethod
     def compute_overall_statistics(
