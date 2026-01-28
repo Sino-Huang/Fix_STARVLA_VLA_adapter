@@ -166,8 +166,12 @@ class ModelClient:
         return model_config['framework']['action_model']['future_action_window_size'] + 1
 
 
-    def _resize_image(self, image: np.ndarray) -> np.ndarray:
-        image = cv.resize(image, tuple(self.image_size), interpolation=cv.INTER_AREA)
+    # ! @Granularity change the resolution of the image during evaluation
+    def _resize_image(self, image: np.ndarray, upsample_size = 224) -> np.ndarray:
+        image = cv.resize(image, tuple(self.image_size), interpolation=cv.INTER_CUBIC)
+        # 2) Upsample to 224x224 if target_resolution != 224
+        if self.image_size[0] != upsample_size:
+            image = cv.resize(image, (upsample_size, upsample_size), interpolation=cv.INTER_LINEAR)
         return image
 
     def visualize_epoch(

@@ -9,10 +9,11 @@ from pathlib import Path
 import requests
 import time
 from starVLA.model.tools import read_mode_config
-
+from starVLA.eval.eval_database_helper import DatabaseHelper, EvalResult
 import imageio
 import numpy as np
 import tqdm
+from time import sleep
 import tyro
 from libero.libero import benchmark, get_libero_path
 from libero.libero.envs import OffScreenRenderEnv
@@ -31,6 +32,16 @@ def _binarize_gripper_open(open_val: np.ndarray | float) -> np.ndarray:
 
 @dataclasses.dataclass
 class Args:
+    #################################################################################################################
+    # Eval configs
+    #################################################################################################################
+    eval_round_id: str
+    train_id: str
+    checkpoint_step: int
+    training_strategy: str 
+    env_name: str = "libero"
+    test_no_lang: bool = False
+    
     host: str = "127.0.0.1"
     port: int = 10093
     resize_size = [224,224]
@@ -54,6 +65,8 @@ class Args:
     post_process_action: bool = True
 
     job_name: str = "test"
+    
+    
 
 
 def eval_libero(args: Args) -> None:
@@ -62,192 +75,249 @@ def eval_libero(args: Args) -> None:
     model_config, norm_stats = read_mode_config(args.pretrained_path)  # read config and norm_stats
     # TODO need to read if varying_image_resolution is true and then read image_resolution_ranges
     
-    # Set random seed
-    np.random.seed(args.seed)
-
-    # Initialize LIBERO task suite
-    benchmark_dict = benchmark.get_benchmark_dict()
-    task_suite = benchmark_dict[args.task_suite_name]()
-    num_tasks_in_suite = task_suite.n_tasks
-    logging.info(f"Task suite: {args.task_suite_name}")
-
-    # args.video_out_path = f"{date_base}+{args.job_name}"
+    eval_database_helper = DatabaseHelper(db_name=os.path.join(os.environ['WORKING_DIR'], 'results/starvla_eval_results.db'))
     
-    pathlib.Path(args.video_out_path).mkdir(parents=True, exist_ok=True)
-
-    if args.task_suite_name == "libero_spatial":
-        max_steps = 220  # longest training demo has 193 steps
-    elif args.task_suite_name == "libero_object":
-        max_steps = 280  # longest training demo has 254 steps
-    elif args.task_suite_name == "libero_goal":
-        max_steps = 300  # longest training demo has 270 steps
-    elif args.task_suite_name == "libero_10":
-        max_steps = 520  # longest training demo has 505 steps
-    elif args.task_suite_name == "libero_90":
-        max_steps = 400  # longest training demo has 373 steps
+    eval_round_id = args.eval_round_id
+    train_id = args.train_id
+    checkpoint_step = args.checkpoint_step
+    timestamp = time.time()
+    model_arch = model_config['framework']['name']
+    training_strategy = args.training_strategy
+    env_name = args.env_name
+    task_suite_name = args.task_suite_name
+    test_no_lang = args.test_no_lang
+    varying_image_resolution = model_config['datasets']['vla_data']['varying_image_resolution']
+    image_resolution_ranges = model_config['datasets']['vla_data']['image_resolution_ranges']
+    if varying_image_resolution:
+        target_vision_gran_loop = image_resolution_ranges
     else:
-        raise ValueError(f"Unknown task suite: {args.task_suite_name}")
-
-    client_model = ModelClient(
-        policy_ckpt_path=args.pretrained_path, # to get unnormalization stats
-        host=args.host,
-        port=args.port,
-        image_size=args.resize_size,
-    )
-
-
-    # Start evaluation
-    total_episodes, total_successes = 0, 0
-    for task_id in tqdm.tqdm(range(num_tasks_in_suite)):
-        # Get task
-        task = task_suite.get_task(task_id)
-
-        # Get default LIBERO initial states
-        initial_states = task_suite.get_task_init_states(task_id)
-
-        # Initialize LIBERO environment and task description
-        env, task_description = _get_libero_env(task, LIBERO_ENV_RESOLUTION, args.seed)
-
-        # Start episodes
-        task_episodes, task_successes = 0, 0
-        for episode_idx in tqdm.tqdm(range(args.num_trials_per_task)):
-            logging.info(f"\nTask: {task_description}")
-
-            # Reset environment
-            client_model.reset(task_description=task_description)  # Reset the client connection
-            env.reset()
-
-            # Set initial states
-            obs = env.set_init_state(initial_states[episode_idx])
-
-            # Setup
-            t = 0
-            replay_images = []
-            full_actions = []
-
-            logging.info(f"Starting episode {task_episodes + 1}...")
-            step = 0
+        target_vision_gran_loop = [args.resize_size[0]]  # assuming square
+    
+    if test_no_lang:
+        target_lang_gran_loop = ["l", "no_lang"]
+    else:
+        target_lang_gran_loop = ["l"]
+    
+    for resolution_size in target_vision_gran_loop:
+        for lang_gran in target_lang_gran_loop:
             
-            # full_actions = np.load("./debug/action.npy")
+            vision_granularity = str(resolution_size)
+            instruction_type = lang_gran
             
-            while t < max_steps + args.num_steps_wait:
-                # try:
-                # IMPORTANT: Do nothing for the first few timesteps because the simulator drops objects
-                # and we need to wait for them to fall
-                if t < args.num_steps_wait:
-                    obs, reward, done, info = env.step(LIBERO_DUMMY_ACTION)
-                    t += 1
-                    continue
+            # Set random seed
+            np.random.seed(args.seed)
 
-                # IMPORTANT: rotate 180 degrees to match train preprocessing
-                img = np.ascontiguousarray(obs["agentview_image"][::-1, ::-1])
-                wrist_img = np.ascontiguousarray(
-                    obs["robot0_eye_in_hand_image"][::-1, ::-1]
-                )
+            # Initialize LIBERO task suite
+            benchmark_dict = benchmark.get_benchmark_dict()
+            task_suite = benchmark_dict[args.task_suite_name]()
+            num_tasks_in_suite = task_suite.n_tasks
+            logging.info(f"Task suite: {args.task_suite_name}")
 
-                # Save preprocessed image for replay video
-                replay_images.append(img)
+            # args.video_out_path = f"{date_base}+{args.job_name}"
+            
+            pathlib.Path(args.video_out_path).mkdir(parents=True, exist_ok=True)
 
-                state = np.concatenate(
-                    (
-                        obs["robot0_eef_pos"],
-                        _quat2axisangle(obs["robot0_eef_quat"]),
-                        obs["robot0_gripper_qpos"],
-                    )
-                )
+            if args.task_suite_name == "libero_spatial":
+                max_steps = 220  # longest training demo has 193 steps
+            elif args.task_suite_name == "libero_object":
+                max_steps = 280  # longest training demo has 254 steps
+            elif args.task_suite_name == "libero_goal":
+                max_steps = 300  # longest training demo has 270 steps
+            elif args.task_suite_name == "libero_10":
+                max_steps = 520  # longest training demo has 505 steps
+            elif args.task_suite_name == "libero_90":
+                max_steps = 400  # longest training demo has 373 steps
+            else:
+                raise ValueError(f"Unknown task suite: {args.task_suite_name}")
 
-                observation = { # 
-                    "observation.primary": np.expand_dims(
-                        img, axis=0
-                    ),  # (H, W, C), dtype=unit8, range(0-255)
-                    "observation.wrist_image": np.expand_dims(
-                        wrist_img, axis=0
-                    ),  # (H, W, C)
-                    "observation.state": np.expand_dims(state, axis=0),
-                    "instruction": [str(task_description)],
-                }
-
-                # align key with model API --> 这里给了两个图像 --> check training
-                example_dict = {
-                    "image": [observation["observation.primary"][0], observation["observation.wrist_image"][0]],
-                    "lang": observation["instruction"][0],
-                }
-
-                
-                start_time = time.time()
-                
-                response = client_model.step(example=example_dict, step=step) 
-                
-                end_time = time.time()
-                # print(f"time: {end_time - start_time}")
-                
-                # # 
-                raw_action = response["raw_action"]
-                
-                world_vector_delta = np.asarray(raw_action.get("world_vector"), dtype=np.float32).reshape(-1)
-                rotation_delta = np.asarray(raw_action.get("rotation_delta"), dtype=np.float32).reshape(-1)
-                open_gripper = np.asarray(raw_action.get("open_gripper"), dtype=np.float32).reshape(-1)
-                gripper = _binarize_gripper_open(open_gripper)
-
-                if not (world_vector_delta.size == 3 and rotation_delta.size == 3 and open_gripper.size == 1):
-                    logging.warning(f"Unexpected action sizes: "
-                                    f"wv={world_vector_delta.shape}, rot={rotation_delta.shape}, grip={gripper.shape}. "
-                                    f"Falling back to LIBERO_DUMMY_ACTION.")
-                    raise ValueError(
-                        f"Invalid action sizes: world_vector={world_vector_delta.shape}, "
-                        f"rotation_delta={rotation_delta.shape}, gripper={gripper.shape}"
-                    )
-                else:
-                    delta_action = np.concatenate([world_vector_delta, rotation_delta, gripper], axis=0)
-
-                full_actions.append(delta_action)
-                
-                # __import__("ipdb").set_trace()
-                # see ../robosuite/controllers/controller_factory.py
-                obs, reward, done, info = env.step(delta_action.tolist())
-                if done:
-                    task_successes += 1
-                    total_successes += 1
-                    break
-                t += 1
-                step += 1
-
-            task_episodes += 1
-            total_episodes += 1
-
-            # Save a replay video of the episode
-            suffix = "success" if done else "failure"
-            task_segment = task_description.replace(" ", "_")
-            imageio.mimwrite(
-                pathlib.Path(args.video_out_path)
-                / f"rollout_{task_segment}_episode{episode_idx}_{suffix}.mp4",
-                [np.asarray(x) for x in replay_images],
-                fps=10,
+            client_model = ModelClient(
+                policy_ckpt_path=args.pretrained_path, # to get unnormalization stats
+                host=args.host,
+                port=args.port,
+                image_size=[resolution_size, resolution_size],
             )
-            
-            full_actions = np.stack(full_actions)
-            # np.save(pathlib.Path(args.video_out_path) / f"rollout_{task_segment}_episode{episode_idx}_{suffix}.npy", full_actions)
-            
-            # print(pathlib.Path(args.video_out_path) / f"rollout_{task_segment}_episode{episode_idx}_{suffix}.mp4")
-            # Log current results
-            logging.info(f"Success: {done}")
-            logging.info(f"# episodes completed so far: {total_episodes}")
+
+
+            # Start evaluation
+            total_episodes, total_successes = 0, 0
+            for task_id in tqdm.tqdm(range(num_tasks_in_suite)):
+                # Get task
+                task = task_suite.get_task(task_id)
+                # Get default LIBERO initial states
+                initial_states = task_suite.get_task_init_states(task_id)
+
+                # Initialize LIBERO environment and task description
+                env, task_description = _get_libero_env(task, LIBERO_ENV_RESOLUTION, args.seed)
+
+                # Start episodes
+                task_episodes, task_successes = 0, 0
+                for episode_idx in tqdm.tqdm(range(args.num_trials_per_task)):
+                    logging.info(f"\nTask: {task_description}")
+
+                    # Reset environment
+                    client_model.reset(task_description=task_description)  # Reset the client connection
+                    env.reset()
+
+                    # Set initial states
+                    obs = env.set_init_state(initial_states[episode_idx])
+
+                    # Setup
+                    t = 0
+                    replay_images = []
+                    full_actions = []
+
+                    logging.info(f"Starting episode {task_episodes + 1}...")
+                    step = 0
+                    
+                    # full_actions = np.load("./debug/action.npy")
+                    
+                    while t < max_steps + args.num_steps_wait:
+                        # try:
+                        # IMPORTANT: Do nothing for the first few timesteps because the simulator drops objects
+                        # and we need to wait for them to fall
+                        if t < args.num_steps_wait:
+                            obs, reward, done, info = env.step(LIBERO_DUMMY_ACTION)
+                            t += 1
+                            continue
+
+                        # IMPORTANT: rotate 180 degrees to match train preprocessing
+                        img = np.ascontiguousarray(obs["agentview_image"][::-1, ::-1])
+                        wrist_img = np.ascontiguousarray(
+                            obs["robot0_eye_in_hand_image"][::-1, ::-1]
+                        )
+
+                        # Save preprocessed image for replay video
+                        replay_images.append(img)
+
+                        state = np.concatenate(
+                            (
+                                obs["robot0_eef_pos"],
+                                _quat2axisangle(obs["robot0_eef_quat"]),
+                                obs["robot0_gripper_qpos"],
+                            )
+                        )
+
+                        if lang_gran == "no_lang":
+                            refined_task_description = "solve the task."
+                        elif lang_gran == "l":
+                            refined_task_description = task_description
+                        else:
+                            raise ValueError(f"Unknown lang granularity: {lang_gran}")
+
+                        observation = { # 
+                            "observation.primary": np.expand_dims(
+                                img, axis=0
+                            ),  # (H, W, C), dtype=unit8, range(0-255)
+                            "observation.wrist_image": np.expand_dims(
+                                wrist_img, axis=0
+                            ),  # (H, W, C)
+                            "observation.state": np.expand_dims(state, axis=0),
+                            "instruction": [str(refined_task_description)],  # list of str
+                        }
+
+                        # align key with model API --> 这里给了两个图像 --> check training
+                        example_dict = {
+                            "image": [observation["observation.primary"][0], observation["observation.wrist_image"][0]],
+                            "lang": observation["instruction"][0],
+                        }
+
+                        
+                        start_time = time.time()
+                        
+                        response = client_model.step(example=example_dict, step=step) 
+                        
+                        end_time = time.time()
+                        # print(f"time: {end_time - start_time}")
+                        
+                        # # 
+                        raw_action = response["raw_action"]
+                        
+                        world_vector_delta = np.asarray(raw_action.get("world_vector"), dtype=np.float32).reshape(-1)
+                        rotation_delta = np.asarray(raw_action.get("rotation_delta"), dtype=np.float32).reshape(-1)
+                        open_gripper = np.asarray(raw_action.get("open_gripper"), dtype=np.float32).reshape(-1)
+                        gripper = _binarize_gripper_open(open_gripper)
+
+                        if not (world_vector_delta.size == 3 and rotation_delta.size == 3 and open_gripper.size == 1):
+                            logging.warning(f"Unexpected action sizes: "
+                                            f"wv={world_vector_delta.shape}, rot={rotation_delta.shape}, grip={gripper.shape}. "
+                                            f"Falling back to LIBERO_DUMMY_ACTION.")
+                            raise ValueError(
+                                f"Invalid action sizes: world_vector={world_vector_delta.shape}, "
+                                f"rotation_delta={rotation_delta.shape}, gripper={gripper.shape}"
+                            )
+                        else:
+                            delta_action = np.concatenate([world_vector_delta, rotation_delta, gripper], axis=0)
+
+                        full_actions.append(delta_action)
+                        
+                        # __import__("ipdb").set_trace()
+                        # see ../robosuite/controllers/controller_factory.py
+                        obs, reward, done, info = env.step(delta_action.tolist())
+                        if done:
+                            task_successes += 1
+                            total_successes += 1
+                            break
+                        t += 1
+                        step += 1
+
+                    task_episodes += 1
+                    total_episodes += 1
+
+                    # Save a replay video of the episode
+                    suffix = "success" if done else "failure"
+                    task_segment = task_description.replace(" ", "_")
+                    imageio.mimwrite(
+                        pathlib.Path(args.video_out_path)
+                        / f"rollout_{task_segment}_episode{episode_idx}_{suffix}.mp4",
+                        [np.asarray(x) for x in replay_images],
+                        fps=10,
+                    )
+                    
+                    full_actions = np.stack(full_actions)
+                    # np.save(pathlib.Path(args.video_out_path) / f"rollout_{task_segment}_episode{episode_idx}_{suffix}.npy", full_actions)
+                    
+                    # print(pathlib.Path(args.video_out_path) / f"rollout_{task_segment}_episode{episode_idx}_{suffix}.mp4")
+                    # Log current results
+                    logging.info(f"Success: {done}")
+                    logging.info(f"# episodes completed so far: {total_episodes}")
+                    logging.info(
+                        f"# successes: {total_successes} ({total_successes / total_episodes * 100:.1f}%)"
+                    )
+                    
+                    # TODO @Granularity. update to the eval database
+                    eval_result = EvalResult(
+                        eval_round_id=eval_round_id,
+                        train_id=train_id,
+                        timestamp=timestamp,
+                        checkpoint_step=checkpoint_step,
+                        model_arch=model_arch,
+                        training_strategy=training_strategy,
+                        env_name=env_name,
+                        task_suite_name=task_suite_name,
+                        problem_id=episode_idx,
+                        vision_granularity=vision_granularity,
+                        instruction_type=instruction_type,
+                        instruction_value=refined_task_description,
+                        success=done,
+                        seed=args.seed,
+                    )
+                    if not eval_database_helper.check_if_exists(eval_result):
+                        eval_database_helper.insert_eval_result(eval_result)
+                    else:
+                        logging.info("Eval result already exists in the database. Skipping insertion.")
+
+                # Log final results
+                logging.info(
+                    f"Current task success rate: {float(task_successes) / float(task_episodes)}"
+                )
+                logging.info(
+                    f"Current total success rate: {float(total_successes) / float(total_episodes)}"
+                )
+
             logging.info(
-                f"# successes: {total_successes} ({total_successes / total_episodes * 100:.1f}%)"
+                f"Total success rate: {float(total_successes) / float(total_episodes)}"
             )
-
-        # Log final results
-        logging.info(
-            f"Current task success rate: {float(task_successes) / float(task_episodes)}"
-        )
-        logging.info(
-            f"Current total success rate: {float(total_successes) / float(total_episodes)}"
-        )
-
-    logging.info(
-        f"Total success rate: {float(total_successes) / float(total_episodes)}"
-    )
-    logging.info(f"Total episodes: {total_episodes}")
+            logging.info(f"Total episodes: {total_episodes}")
 
 
 def _get_libero_env(task, resolution, seed):

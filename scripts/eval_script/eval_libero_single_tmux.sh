@@ -151,4 +151,4 @@ if [ -n "$SLURM_JOB_ID" ]; then
     done
 fi
     
-    
+# bash scripts/eval_script/eval_libero_single_tmux.sh 5694 0 varying_image_gran_libero4in1_qwen_adapter 21000

@@ -9,10 +9,10 @@ import pandas as pd
 from tqdm import tqdm
 
 # TODO, make it fit for LIBERO eval results
-EVAL_ROUND_ID = "LIBERO_PRELIM_TEST_VISION_HYPOTHESIS_V1"
+DEFAULT_EVAL_ROUND_ID = "LIBERO_PRELIM_TEST_VISION_HYPOTHESIS_V1"
 
 CHECK_EXIST_COLUMNS = ['eval_round_id', 'train_id', 'checkpoint_step', 'model_arch',
-                       'training_strategy', 'env_name', 'task_suite_name', 'problem_id',
+                       'training_strategy', 'env_name', 'task_suite_name', 'problem_id', 'seed',
                        'vision_granularity', 'instruction_type', 'instruction_value']
 
 @dataclass
@@ -47,6 +47,7 @@ class EvalResult:
     
     # --- 4. Detailed Metrics (The "Answers") ---
     success: bool           # Binary success
+    seed: Optional[int] = -1     # Random seed used for eval run
     
     # Other detailed metrics
     is_ood_visual: bool = False     # True if evaluating on randomized textures/lighting

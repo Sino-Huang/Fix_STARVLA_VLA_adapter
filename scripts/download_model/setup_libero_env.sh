@@ -25,6 +25,8 @@ pip install -e .
 
 pip install tyro matplotlib mediapy websockets msgpack rich debugpy
 pip install numpy==1.24.4
+pip install pandas~=2.3.3
+
 
 # get datasets 
 echo N | python benchmark_scripts/download_libero_datasets.py --use-huggingface 
