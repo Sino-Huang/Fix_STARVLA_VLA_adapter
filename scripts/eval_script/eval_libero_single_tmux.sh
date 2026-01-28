@@ -143,12 +143,12 @@ fi
 tmux kill-session -t "$sessname"
 echo "Killed tmux session: $sessname"
 
-# if in slurm, need to maintain this script session, we check if we are in slurm by checking if SLURM_JOB_ID is set
-if [ -n "$SLURM_JOB_ID" ]; then
-    # also check if that tmux session there, if not, we can break 
-    while tmux has-session -t "$sessname" 2>/dev/null; do
-        python scripts/connect_utils/libero_env_alive_check.py
-    done
-fi
+# # if in slurm, need to maintain this script session, we check if we are in slurm by checking if SLURM_JOB_ID is set
+# if [ -n "$SLURM_JOB_ID" ]; then
+#     # also check if that tmux session there, if not, we can break 
+#     while tmux has-session -t "$sessname" 2>/dev/null; do
+#         python scripts/connect_utils/libero_env_alive_check.py
+#     done
+# fi
     
 # bash scripts/eval_script/eval_libero_single_tmux.sh 5694 0 varying_image_gran_libero4in1_qwen_adapter 21000
