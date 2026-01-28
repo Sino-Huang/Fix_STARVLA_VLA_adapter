@@ -161,6 +161,8 @@ class ModelClient:
     def get_action_chunk_size(policy_ckpt_path):
         model_config, _ = read_mode_config(policy_ckpt_path)  # read config and norm_stats
         # import ipdb; ipdb.set_trace()
+        if 'future_action_window_size' not in model_config['framework']['action_model']:
+            return model_config['framework']['action_model']['num_actions_chunk'] # this is for vla-adapter
         return model_config['framework']['action_model']['future_action_window_size'] + 1
 
 

@@ -8,6 +8,7 @@ import pathlib
 from pathlib import Path
 import requests
 import time
+from starVLA.model.tools import read_mode_config
 
 import imageio
 import numpy as np
@@ -58,6 +59,9 @@ class Args:
 def eval_libero(args: Args) -> None:
     logging.info(f"Arguments: {json.dumps(dataclasses.asdict(args), indent=4)}")
 
+    model_config, norm_stats = read_mode_config(args.pretrained_path)  # read config and norm_stats
+    # TODO need to read if varying_image_resolution is true and then read image_resolution_ranges
+    
     # Set random seed
     np.random.seed(args.seed)
 

@@ -30,6 +30,12 @@ else
     echo "using your_ckpt: $your_ckpt"
 fi
 
+# ensure train_id and checkpoint_step are set
+if [ -z "$train_id" ] || [ -z "$checkpoint_step" ]; then
+    echo "Error: train_id and checkpoint_step environment variables must be set."
+    exit 1
+fi
+
 
 folder_name=$(echo "$your_ckpt" | awk -F'/' '{print $(NF-2)"_"$(NF-1)"_"$NF}')
 # === End of environment variable configuration ===
@@ -69,3 +75,6 @@ done
 echo "=========================================="
 echo "All task suites evaluated!"
 echo "=========================================="
+
+# create a flag file to indicate eval is done, using train_id and checkpoint_step
+touch ~/eval_done_${train_id}_${checkpoint_step}

@@ -104,8 +104,9 @@ if tmux list-panes -t "$sessname" | grep -q "libero-env"; then
     echo "Pane libero-env already exists. Skipping creation."
     pane_libero_env=$(tmux list-panes -t "$sessname" -F "#{pane_id} #{pane_title}" | grep "libero-env" | awk '{print $1}')
 else
-    tmux split-window -v -t "$pane_policy_server"
-    pane_libero_env=$(tmux display-message -p '#{pane_id}')
+    tmux split-window -v -t "$sessname:0.0"
+    # Get the newly created pane (should be pane 1)
+    pane_libero_env="$sessname:0.1"
 fi
 
 tmux select-pane -t "$pane_libero_env" -T "libero-env"
@@ -116,14 +117,31 @@ tmux send-keys -t "$pane_libero_env" "export your_ckpt=$your_ckpt" Enter
 # export eval_port
 tmux send-keys -t "$pane_libero_env" "export eval_port=$eval_port" Enter
 
-# remove previous process on port 10092
-tmux send-keys -t "$pane_libero_env" "kill $(lsof -t -i :10092)" Enter
+# export train_id and checkpoint_step
+tmux send-keys -t "$pane_libero_env" "export train_id=$train_id" Enter
+tmux send-keys -t "$pane_libero_env" "export checkpoint_step=$checkpoint_step" Enter
 
 tmux send-keys -t "$pane_libero_env" "bash examples/LIBERO/eval_files/eval_libero.sh" Enter
 echo "Libero eval started in pane: $pane_libero_env"
 
 # echo instructions to attach to the tmux session
 echo -e "To attach to the tmux session, run:\ntmux a -t $sessname"
+
+eval_done_flag_file=~/eval_done_${train_id}_${checkpoint_step}
+# wait until the eval is done by checking the flag file, if exists, we delete the flag file and also destroy the tmux session
+while [ ! -f "$eval_done_flag_file" ]; do
+    echo "Waiting for eval to complete..."
+    sleep 60  # check every 60 seconds
+done
+# once eval is done, we remove the flag file
+
+if [ -f "$eval_done_flag_file" ]; then
+    rm "$eval_done_flag_file"
+    echo "Eval completed. Removed flag file: $eval_done_flag_file"
+fi
+# kill the tmux session
+tmux kill-session -t "$sessname"
+echo "Killed tmux session: $sessname"
 
 # if in slurm, need to maintain this script session, we check if we are in slurm by checking if SLURM_JOB_ID is set
 if [ -n "$SLURM_JOB_ID" ]; then
