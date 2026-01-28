@@ -12,6 +12,7 @@ export PYTHONPATH=$PYTHONPATH:${LIBERO_HOME} # let eval_libero find the LIBERO t
 host="127.0.0.1"
 base_port=5694
 unnorm_key="franka"
+num_trials_per_task=50
 
 if [ -z "$eval_port" ]; then
     base_port=5694
@@ -37,16 +38,34 @@ folder_name=$(echo "$your_ckpt" | awk -F'/' '{print $(NF-2)"_"$(NF-1)"_"$NF}')
 LOG_DIR="logs/$(date +"%Y%m%d_%H%M%S")"
 mkdir -p ${LOG_DIR}
 
+task_suite_name_list=("libero_goal" "libero_object" "libero_spatial" "libero_10")
 
-task_suite_name=libero_goal
-num_trials_per_task=50
-video_out_path="results/${task_suite_name}/${folder_name}"
+# Loop through each task suite
+for task_suite_name in "${task_suite_name_list[@]}"; do
+    echo "=========================================="
+    echo "Evaluating task suite: $task_suite_name"
+    echo "=========================================="
+    
+    video_out_path="results/${task_suite_name}/${folder_name}"
+    
+    ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero.py \
+        --args.pretrained-path ${your_ckpt} \
+        --args.host "$host" \
+        --args.port $base_port \
+        --args.task-suite-name "$task_suite_name" \
+        --args.num-trials-per-task "$num_trials_per_task" \
+        --args.video-out-path "$video_out_path"
+    
+    # Check if evaluation succeeded
+    if [ $? -ne 0 ]; then
+        echo "⚠️  Evaluation failed for $task_suite_name"
+        continue
+    fi
+    
+    echo "✅ Completed evaluation for $task_suite_name"
+    echo ""
+done
 
-
-${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero.py \
-    --args.pretrained-path ${your_ckpt} \
-    --args.host "$host" \
-    --args.port $base_port \
-    --args.task-suite-name "$task_suite_name" \
-    --args.num-trials-per-task "$num_trials_per_task" \
-    --args.video-out-path "$video_out_path"
+echo "=========================================="
+echo "All task suites evaluated!"
+echo "=========================================="

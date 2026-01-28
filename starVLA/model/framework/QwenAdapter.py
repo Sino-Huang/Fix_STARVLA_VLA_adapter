@@ -102,6 +102,7 @@ class Qwen_Adapter(baseframework):
         self.dummy_action_token_id = self.qwen_vl_interface.processor.tokenizer("🔍", add_special_tokens=False)["input_ids"][0]
         self.dummy_action_prompt = self.dummy_action_token * self.action_query_num
         self.chunk_len = self.config.framework.action_model.get("num_actions_chunk", None)
+        self.future_action_window_size = config.framework.action_model.future_action_window_size # need to add this 
         if self.chunk_len is None:
             raise ValueError("num_actions_chunk must be specified in action_model config.")
         if self.config.framework.action_model.get("use_proprio", False):

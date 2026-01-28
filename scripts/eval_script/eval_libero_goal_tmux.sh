@@ -12,20 +12,45 @@
 #SBATCH --exclude="node[13,16,19,20]"
 #SBATCH --nodelist=node[12]
 
-# if $1 has input, then set the eval_port, otherwise, set eval_port default to 5694
-if [ -n "$1" ]; then
-    eval_port=$1
-else
-    eval_port=5694
-fi
+# Parameter validation with case statement
+case $# in
+    0)
+        eval_port=5694
+        policy_gpu_id=0
+        train_id="varying_image_gran_libero4in1_qwen_adapter"
+        checkpoint_step=20000
+        ;;
+    1)
+        eval_port=$1
+        policy_gpu_id=0
+        train_id="varying_image_gran_libero4in1_qwen_adapter"
+        checkpoint_step=20000
+        ;;
+    2)
+        eval_port=$1
+        policy_gpu_id=$2
+        train_id="varying_image_gran_libero4in1_qwen_adapter"
+        checkpoint_step=20000
+        ;;
+    3)
+        eval_port=$1
+        policy_gpu_id=$2
+        train_id=$3
+        checkpoint_step=20000
+        ;;
+    *)
+        eval_port=$1
+        policy_gpu_id=$2
+        train_id=$3
+        checkpoint_step=$4
+        ;;
+esac
+
+your_ckpt="$PWD/results/Checkpoints/${train_id}/checkpoints/steps_${checkpoint_step}_pytorch_model.pt"
 
 
 
-policy_gpu_id=0
-your_ckpt=$PWD/results/Checkpoints/trial_libero4in1_qwenadapter/checkpoints/steps_20000_pytorch_model.pt
-
-
-sessname="starvla_eval_libero_goal_${eval_port}"
+sessname="eval_libero_port_${eval_port}_step_${checkpoint_step}_gpu_${policy_gpu_id}"
 tmux new-session -d -s "$sessname"
 if [[ $? -eq 1 ]]; then
     # meaning it already exists

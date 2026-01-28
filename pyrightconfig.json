@@ -1,4 +1,5 @@
 {
+    "extraPaths": ["modules/LIBERO"],
     "exclude": [
       // "**/__pycache__",
       "checkpoints",
