@@ -304,9 +304,12 @@ def eval_libero(args: Args) -> None:
                     # Log current results
                     logging.info(f"Success: {done}")
                     logging.info(f"# episodes completed so far: {total_episodes}")
-                    logging.info(
-                        f"# successes: {total_successes} ({total_successes / total_episodes * 100:.1f}%)"
-                    )
+                    try:
+                        logging.info(
+                            f"# task successes: {task_successes} ({task_successes / task_episodes * 100:.1f}%)"
+                        )
+                    except ZeroDivisionError:
+                        logging.info("No episodes were run for this task, cannot compute success rate.")
                     
                     # @Granularity. update to the eval database
                     eval_result = EvalResult(
@@ -331,17 +334,23 @@ def eval_libero(args: Args) -> None:
                         logging.info("Eval result already exists in the database. Skipping insertion.")
 
                 # Log final results
-                logging.info(
-                    f"Current task success rate: {float(task_successes) / float(task_episodes)}"
-                )
-                logging.info(
-                    f"Current total success rate: {float(total_successes) / float(total_episodes)}"
-                )
+                try:
+                    logging.info(
+                        f"Current task success rate: {float(task_successes) / float(task_episodes)}"
+                    )
+                    logging.info(
+                        f"Current total success rate: {float(total_successes) / float(total_episodes)}"
+                    )
+                except ZeroDivisionError:
+                    logging.info("No episodes were run, cannot compute success rates.")
 
-            logging.info(
-                f"Total success rate: {float(total_successes) / float(total_episodes)}"
-            )
-            logging.info(f"Total episodes: {total_episodes}")
+            try:
+                logging.info(
+                    f"Total success rate: {float(total_successes) / float(total_episodes)}"
+                )
+                logging.info(f"Total episodes: {total_episodes}")
+            except ZeroDivisionError:
+                logging.info("No episodes were run, cannot compute success rates.")
 
 
 def _get_libero_env(task, resolution, seed):

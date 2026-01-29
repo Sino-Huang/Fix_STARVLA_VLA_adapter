@@ -90,7 +90,8 @@ echo ""
 
 # Function to count active evaluation tmux sessions for this train_id
 count_active_sessions() {
-    tmux list-sessions 2>/dev/null | grep -c "eval_libero_port_.*_step_.*_gpu_" || echo "0"
+    local count=$(tmux list-sessions 2>/dev/null | grep -c "eval_libero_port_.*_step_.*_gpu_" || echo "0")
+    echo "$count" | tr -d '\n\r '
 }
 
 # Function to check if a specific session is still running
@@ -115,13 +116,14 @@ done
 # Function to count jobs on a specific GPU
 count_gpu_jobs() {
     local gpu=$1
-    tmux list-sessions 2>/dev/null | grep -c "eval_libero_port_.*_gpu_${gpu}" || echo "0"
+    local count=$(tmux list-sessions 2>/dev/null | grep -c "eval_libero_port_.*_gpu_${gpu}" || echo "0")
+    echo "$count" | tr -d '\n\r '
 }
 
 # Process all checkpoints
 for step in "${checkpoint_steps[@]}"; do
     # Wait if we've reached max parallel jobs
-    while [ $(count_active_sessions) -ge $max_parallel ]; do
+    while [ "$(count_active_sessions)" -ge "$max_parallel" ]; do
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Max parallel jobs ($max_parallel) reached. Waiting for a slot..."
         sleep 30
         
@@ -149,7 +151,8 @@ for step in "${checkpoint_steps[@]}"; do
     selected_gpu=${GPU_ARRAY[0]}
     for gpu in "${GPU_ARRAY[@]}"; do
         current_jobs=$(count_gpu_jobs "$gpu")
-        if [ $current_jobs -lt $min_jobs ]; then
+        current_jobs=${current_jobs:-0}  # Default to 0 if empty
+        if [ "$current_jobs" -lt "$min_jobs" ]; then
             min_jobs=$current_jobs
             selected_gpu=$gpu
         fi
@@ -190,7 +193,7 @@ done
 
 # Wait for all remaining jobs to complete
 echo "$(date '+%Y-%m-%d %H:%M:%S') - All checkpoints launched. Waiting for completion..."
-while [ $(count_active_sessions) -gt 0 ]; do
+while [ "$(count_active_sessions)" -gt 0 ]; do
     active_count=$(count_active_sessions)
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Still running: $active_count sessions"
     
