@@ -100,11 +100,23 @@ is_session_running() {
     return $?
 }
 
-# Track running jobs
+# Track running jobs per GPU
 declare -A running_jobs  # session_name -> checkpoint_step
+declare -A gpu_job_count  # gpu_id -> count of running jobs
 job_index=0
 gpu_index=0
 port_offset=0
+
+# Initialize GPU job counters
+for gpu in "${GPU_ARRAY[@]}"; do
+    gpu_job_count[$gpu]=0
+done
+
+# Function to count jobs on a specific GPU
+count_gpu_jobs() {
+    local gpu=$1
+    tmux list-sessions 2>/dev/null | grep -c "eval_libero_port_.*_gpu_${gpu}" || echo "0"
+}
 
 # Process all checkpoints
 for step in "${checkpoint_steps[@]}"; do
@@ -113,18 +125,37 @@ for step in "${checkpoint_steps[@]}"; do
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Max parallel jobs ($max_parallel) reached. Waiting for a slot..."
         sleep 30
         
-        # Clean up completed jobs from tracking
+        # Clean up completed jobs from tracking and update GPU counts
         for session_name in "${!running_jobs[@]}"; do
             if ! is_session_running "$session_name"; then
                 echo "$(date '+%Y-%m-%d %H:%M:%S') - Job completed: $session_name (step ${running_jobs[$session_name]})"
+                # Extract GPU from session name
+                if [[ $session_name =~ _gpu_([0-9]+) ]]; then
+                    completed_gpu="${BASH_REMATCH[1]}"
+                    gpu_job_count[$completed_gpu]=$((gpu_job_count[$completed_gpu] - 1))
+                fi
                 unset running_jobs["$session_name"]
             fi
         done
+        
+        # Update GPU job counts from actual tmux sessions
+        for gpu in "${GPU_ARRAY[@]}"; do
+            gpu_job_count[$gpu]=$(count_gpu_jobs "$gpu")
+        done
     done
     
-    # Assign GPU (round-robin)
-    gpu_id=${GPU_ARRAY[$gpu_index]}
-    gpu_index=$(( (gpu_index + 1) % num_gpus ))
+    # Find GPU with least jobs (better load balancing)
+    min_jobs=999999
+    selected_gpu=${GPU_ARRAY[0]}
+    for gpu in "${GPU_ARRAY[@]}"; do
+        current_jobs=$(count_gpu_jobs "$gpu")
+        if [ $current_jobs -lt $min_jobs ]; then
+            min_jobs=$current_jobs
+            selected_gpu=$gpu
+        fi
+    done
+    
+    gpu_id=$selected_gpu
     
     # Assign port (increment to avoid conflicts)
     eval_port=$((start_port + port_offset))
@@ -135,7 +166,7 @@ for step in "${checkpoint_steps[@]}"; do
     
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting evaluation:"
     echo "  Checkpoint step: $step"
-    echo "  GPU ID: $gpu_id"
+    echo "  GPU ID: $gpu_id (current jobs: $min_jobs)"
     echo "  Port: $eval_port"
     echo "  Session: $session_name"
     
@@ -149,6 +180,7 @@ for step in "${checkpoint_steps[@]}"; do
     
     # Track this job
     running_jobs["$session_name"]="$step"
+    gpu_job_count[$gpu_id]=$((gpu_job_count[$gpu_id] + 1))
     
     # Give it a moment to initialize
     sleep 5

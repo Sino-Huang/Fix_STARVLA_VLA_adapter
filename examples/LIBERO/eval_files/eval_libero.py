@@ -153,6 +153,36 @@ def eval_libero(args: Args) -> None:
                 task_episodes, task_successes = 0, 0
                 for episode_idx in tqdm.tqdm(range(args.num_trials_per_task)):
                     logging.info(f"\nTask: {task_description}")
+                    if lang_gran == "no_lang":
+                        refined_task_description = "solve the task."
+                    elif lang_gran == "l":
+                        refined_task_description = task_description
+                    else:
+                        raise ValueError(f"Unknown lang granularity: {lang_gran}")
+                    
+                    # generate eval_result_skeleton
+                    eval_result_skeleton = EvalResult(
+                        eval_round_id=eval_round_id,
+                        train_id=train_id,
+                        timestamp=timestamp,
+                        checkpoint_step=checkpoint_step,
+                        model_arch=model_arch,
+                        training_strategy=training_strategy,
+                        env_name=env_name,
+                        task_suite_name=task_suite_name,
+                        problem_id=episode_idx,
+                        vision_granularity=vision_granularity,
+                        instruction_type=instruction_type,
+                        instruction_value=refined_task_description,
+                        success=False,
+                        seed=args.seed,
+                    )
+                    # @Granularity. check if already exists, skip if so
+                    if eval_database_helper.check_if_exists(eval_result_skeleton):
+                        logging.info("Eval result already exists in the database. Skipping this episode.")
+                        total_episodes += 1
+                        continue
+                    
 
                     # Reset environment
                     client_model.reset(task_description=task_description)  # Reset the client connection
@@ -197,13 +227,7 @@ def eval_libero(args: Args) -> None:
                             )
                         )
 
-                        if lang_gran == "no_lang":
-                            refined_task_description = "solve the task."
-                        elif lang_gran == "l":
-                            refined_task_description = task_description
-                        else:
-                            raise ValueError(f"Unknown lang granularity: {lang_gran}")
-
+                  
                         observation = { # 
                             "observation.primary": np.expand_dims(
                                 img, axis=0
@@ -284,7 +308,7 @@ def eval_libero(args: Args) -> None:
                         f"# successes: {total_successes} ({total_successes / total_episodes * 100:.1f}%)"
                     )
                     
-                    # TODO @Granularity. update to the eval database
+                    # @Granularity. update to the eval database
                     eval_result = EvalResult(
                         eval_round_id=eval_round_id,
                         train_id=train_id,
