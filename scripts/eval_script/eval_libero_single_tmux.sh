@@ -120,7 +120,8 @@ tmux send-keys -t "$pane_libero_env" "export eval_port=$eval_port" Enter
 # export train_id and checkpoint_step
 tmux send-keys -t "$pane_libero_env" "export train_id=$train_id" Enter
 tmux send-keys -t "$pane_libero_env" "export checkpoint_step=$checkpoint_step" Enter
-
+# export GPU id for policy server
+tmux send-keys -t "$pane_policy_server" "export gpu_id=$policy_gpu_id" Enter
 tmux send-keys -t "$pane_libero_env" "bash examples/LIBERO/eval_files/eval_libero.sh" Enter
 echo "Libero eval started in pane: $pane_libero_env"
 

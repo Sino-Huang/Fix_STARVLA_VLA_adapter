@@ -21,6 +21,13 @@ else
     base_port=$eval_port
 fi
 
+if [ -n "$gpu_id" ]; then
+    export CUDA_VISIBLE_DEVICES=$gpu_id
+    echo "Using specified GPU ID: $gpu_id"
+else
+    echo "No GPU ID specified, using all available GPUs."
+fi
+
 
 # check if already set your_ckpt env variable, if not, set default value
 if [ -z "$your_ckpt" ]; then
