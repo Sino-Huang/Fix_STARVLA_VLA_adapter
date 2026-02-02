@@ -301,36 +301,43 @@ class DatabaseHelper:
         #         pass
         
 if __name__ == "__main__":
-    db_helper = DatabaseHelper()
-    # create table 
-    db_helper.create_table()
-    # Example usage
-    eval_result = EvalResult(
-        eval_round_id="debug",
-        train_id="test_train_id_001",
-        timestamp="2024-10-01 12:00:00",
-        checkpoint_step=10000,
-        model_arch="OpenVLA-7B",
-        training_strategy="Ours-PureHER",
-        env_name="LIBERO",
-        task_suite_name="libero_spatial",
-        problem_id=1,
-        vision_granularity="224",
-        instruction_type="l",
-        instruction_value="Place the sponge in the cup.",
-        success=True
-    )
-    
-    if not db_helper.check_if_exists(eval_result):
-        db_helper.insert_eval_result(eval_result)
-        print("Inserted new eval result.")
-    else:
-        print("Eval result already exists.")
-    
-    all_results = db_helper.get_all_eval_results()
-    print("All Eval Results:")
-    print(all_results)
-    print(f"Total eval results in database: {len(all_results)}")
-    
+    db_helper = DatabaseHelper(db_name="/home/sukai/Project/STAR_VLA_FIX/Fix_STARVLA_VLA_adapter/results/starvla_eval_results.db")
+    # perform integrate with another db
+    other_db_path = Path("/home/sukai/Project/STAR_VLA_FIX/Fix_STARVLA_VLA_adapter/results/spartan_starvla_eval_results.db")
+    db_helper.integrate_from_another_db(other_db_path)
     db_helper.close()
+    
+    
+    # db_helper = DatabaseHelper()
+    # # create table 
+    # db_helper.create_table()
+    # # Example usage
+    # eval_result = EvalResult(
+    #     eval_round_id="debug",
+    #     train_id="test_train_id_001",
+    #     timestamp="2024-10-01 12:00:00",
+    #     checkpoint_step=10000,
+    #     model_arch="OpenVLA-7B",
+    #     training_strategy="Ours-PureHER",
+    #     env_name="LIBERO",
+    #     task_suite_name="libero_spatial",
+    #     problem_id=1,
+    #     vision_granularity="224",
+    #     instruction_type="l",
+    #     instruction_value="Place the sponge in the cup.",
+    #     success=True
+    # )
+    
+    # if not db_helper.check_if_exists(eval_result):
+    #     db_helper.insert_eval_result(eval_result)
+    #     print("Inserted new eval result.")
+    # else:
+    #     print("Eval result already exists.")
+    
+    # all_results = db_helper.get_all_eval_results()
+    # print("All Eval Results:")
+    # print(all_results)
+    # print(f"Total eval results in database: {len(all_results)}")
+    
+    # db_helper.close()
     

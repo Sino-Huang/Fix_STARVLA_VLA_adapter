@@ -277,6 +277,7 @@ def eval_libero(args: Args) -> None:
                         # __import__("ipdb").set_trace()
                         # see ../robosuite/controllers/controller_factory.py
                         obs, reward, done, info = env.step(delta_action.tolist())
+                        done = bool(done)
                         if done:
                             task_successes += 1
                             total_successes += 1
