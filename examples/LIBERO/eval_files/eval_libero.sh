@@ -68,7 +68,7 @@ for task_suite_name in "${task_suite_name_list[@]}"; do
         --args.task-suite-name "$task_suite_name" \
         --args.num-trials-per-task "$num_trials_per_task" \
         --args.video-out-path "$video_out_path" \
-        --args.eval_round_id "LIBERO_PRELIM_TEST_VISION_HYPOTHESIS_V1" \
+        --args.eval_round_id "LIBERO_PRELIM_TEST_VISION_HYPOTHESIS_V2" \
         --args.train_id "$train_id" \
         --args.checkpoint_step "$checkpoint_step" \
         --args.training_strategy "varying_image_gran" \
