@@ -43,7 +43,7 @@ datasets:
     video_backend: torchvision_av
     varying_image_resolution: false
     track_image_sizes: false
-    image_resolution_ranges: [224, 112, 32] # ! when varying_image_resolution is true, we do this multi-scale downsample and upsample
+    image_resolution_ranges: [224, 32, 4] # ! when varying_image_resolution is true, we do this multi-scale downsample and upsample
 
 
 
