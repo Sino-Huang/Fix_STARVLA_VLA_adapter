@@ -213,3 +213,5 @@ echo "Results location: $PWD/results/"
     
 
 # bash scripts/eval_script/eval_libero_multiple_tmux.sh varying_image_gran_libero4in1_qwen_adapter "0,1,2,3" 4 6001 
+# bash scripts/eval_script/eval_libero_multiple_tmux.sh varying_image_gran_libero4in1_qwen3oft "0,1" 4 6001
+# bash scripts/eval_script/eval_libero_multiple_tmux.sh varying_image_gran_libero4in1_qwen3oft_freeze_vision "1,2,3" 3 6001 

@@ -38,13 +38,13 @@ fi
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
 Framework_name=QwenOFT
-freeze_module_list='qwen_vl_interface.model.model.language_model'
+freeze_module_list='qwen_vl_interface.model.model.language_model,qwen_vl_interface.model.model.visual'
 base_vlm=playground/Pretrained_models/Qwen3-VL-4B-Instruct
 config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
 libero_data_root=playground/Datasets/LEROBOT_LIBERO_DATA
 data_mix=libero_all
 run_root_dir=./results/Checkpoints
-run_id=varying_image_gran_libero4in1_qwen3oft
+run_id=varying_image_gran_libero4in1_qwen3oft_freeze_vision
 varying_image_resolution=true
 # === End of environment variable configuration ===
 ###########################################################################################
